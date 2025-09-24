@@ -16,8 +16,6 @@
 #include <errno.h>
 #include <string.h>
 
-// Make it easy to add/remove denominations if name and value are in the same array
-// instead of having to maintain two parallel arrays that must always be the same length
 typedef struct {
 	char* value_str;
 	char* unit_str;
@@ -38,8 +36,9 @@ typedef enum {
 #define MAX_TABLE_VALUE_LENGTH 32
 
 /// <summary>
-/// </summary>
-/// <param name="*input"></param>
+/// Check that two arguments were provided. Additionally, check if help was requested or if
+/// invalid arguments were provided
+/// <param name="*arg_struct">Where to put result</param>
 /// <returns>Returns 0 if successful, non-zero if not successful.</returns>
 int parseArgs(int argc, char* argv[], Arguments* arg_struct) {
 	// check each provided arg.
