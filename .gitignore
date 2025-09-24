@@ -486,3 +486,7 @@ dkms.conf
 # debug information files
 *.dwo
 .vscode/tasks.json
+/.vscode/launch.json
+/Labs/BolandThomas_lab1.zip
+/Other
+*.code-workspace
