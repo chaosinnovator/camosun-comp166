@@ -1,4 +1,4 @@
-/*
+﻿/*
 * 2025F COMP-166 Lab 2 - Thomas Boland - C0556991
 *
 * This program runs a simple lottery. The provided integer is compared with
@@ -14,11 +14,16 @@
 */
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <locale.h>
+#include <math.h>
 #include <string.h>
 #include <sys/timeb.h>
+#include <wchar.h>
 #include <Windows.h>
+#include <mmsystem.h>
 
 typedef struct {
 	char* guess_str;
@@ -29,6 +34,18 @@ typedef struct {
 #define JACKPOT_LARGE 10000
 #define JACKPOT_MEDIUM 3000
 #define JACKPOT_SMALL 1000
+
+typedef struct {
+	unsigned short balance;
+	unsigned short play_cost;
+	unsigned short guess;
+	unsigned char guess_digits[2];
+	unsigned short target;
+	unsigned char target_digits[2];
+	unsigned long round_start_ms; // used for animation frames and to determine state
+	bool is_playing;
+	unsigned short round_payout;
+} Game;
 
 /// <summary>
 /// Check that one argument were provided. Additionally, check if help was requested or if
@@ -104,7 +121,7 @@ int parseInt(char* str, int* result) {
 /// <param name="*result_tens">Where to put tens</param>
 /// <param name="*result_ones">Where to put ones</param>
 /// <returns>Returns 0 if successful, non-zero if not successful.</returns>
-int splitDigits(int n, int* result_tens, int* result_ones) {
+int splitDigits(int n, char* result_tens, char* result_ones) {
 	// check validity of year number and month
 	if (n < 0 || n > 99) {
 		return -1;
@@ -116,7 +133,7 @@ int splitDigits(int n, int* result_tens, int* result_ones) {
 	return 0;
 }
 
-int calculatePayout(int guess_digits[2], int target_digits[2]) {
+int calculatePayout(char guess_digits[2], char target_digits[2]) {
 	if (guess_digits[0] == target_digits[0] && guess_digits[1] == target_digits[1]) { // 2x correct and right order
 		return JACKPOT_LARGE;
 	}
@@ -137,7 +154,121 @@ void outputHelp() {
 	puts("  /?       Display this help page.\n");
 }
 
+// declared here but defined later since it's not central to this lab
+void displayFrame(wchar_t* output_buffer);
 void play_generated_sound(bool);
+const wchar_t wheel_digits[60][5];
+
+void runGameLoop(Game game_state) {
+	// set round_start time
+	game_state.round_start_ms = GetTickCount64();
+	// set up output rendering buffer with frame (frame shouldn't need to be re-rendered)
+	wchar_t output_buffer[32*9] =
+		L"    ╔══════════╦══════════╗    \n"
+		L"    ║ $ 000000 ║ Bet 0000 ║    \n"
+		L"╔═══╬══════════╩══════════╬═══╗\n"
+		L"║ ♦ ║                     ║ ♠ ║\n"
+		L"╠═══╣                     ╠═══╣\n"
+		L"║ ♣ ║                     ║ ♥ ║\n"
+		L"╠═══╣                     ╠═══╣\n"
+		L"║ ♠ ║                     ║ ♦ ║\n"
+		L"╚═══╩═════════════════════╩═══╝\n";
+		// Enter guess or [Q]uit> ##
+	// set up wheel digit array
+	//    (made it a global const instead)
+	// render frame to buffer. This should never have to be re-rendered
+	// // ═ ║ ╔ ╗ ╚ ╝ ╠ ╣ ╦ ╩ ╬
+	// ♠ ♥ ♣ ♦
+	
+	
+	// render play_cost to buffer. this should never have to be re-rendered
+	wchar_t num_buffer[16];
+	swprintf_s(num_buffer, 16, L"%04d", game_state.play_cost > 9999 ? 9999 : game_state.play_cost);
+	for (int i = 0; i < 4; i++) {
+		output_buffer[(32 * 1 + 21) + i] = num_buffer[i];
+	}
+	// 
+	// while playing
+	unsigned long round_elapsed = 0;
+	unsigned int wheel_offset_left = 0;
+	unsigned int wheel_offset_right = 0;
+	while (game_state.is_playing) {
+		//   check round elapsed time
+		round_elapsed = GetTickCount64() - game_state.round_start_ms;
+		//   render frame decorations
+		//   determine wheel display offsets, based on round elapsed time.
+		//		<2000 ms, left wheel still spinning. speed = 10.0 digits per second. 6 rows per digit, gap each 6th row
+		// play 2-wheel spinning sound.
+		if (round_elapsed < 2000) {
+			wheel_offset_left = (int)((game_state.target_digits[0] - (4.0 * (float)round_elapsed / 1000.0)) * 6) % 10;
+		}
+		else {
+			wheel_offset_left = game_state.target_digits[0] * 6;
+		}
+		//		<4000 ms, right wheel still spinning
+		// play 1-wheel spinning sound
+		if (round_elapsed < 4000) {
+			wheel_offset_right = (int)((game_state.target_digits[1] - (4.0 * (float)round_elapsed / 1000.0)) * 6) % 10;
+		}
+		else {
+			wheel_offset_right = game_state.target_digits[1] * 6;
+		}
+		//   render wheels to the output buffer (only renders 5 rows)
+		// left wheel
+		for (int row = 0; row < 5; row++) {
+			for (int col = 0; col < 5; col++) {
+				output_buffer[(32 * (3 + row)) + (9 + col)] = wheel_digits[(wheel_offset_left + row) % 60][col];
+			}
+		}
+		// right wheel
+		for (int row = 0; row < 5; row++) {
+			for (int col = 0; col < 5; col++) {
+				output_buffer[(32 * (3 + row)) + (17 + col)] = wheel_digits[(wheel_offset_right + row) % 60][col];
+			}
+		}
+		//   render guess.
+		//   render balance. balance-payout if 500-4000ms, balance if >6000ms,
+		//		animated decreasing from balance-payout+cost to balance-payout if <500ms,
+		//      animated increasing from balance-payout to balance 4000-6000ms (if not win, still animate, but +0 doesn't do anything)
+		//   if >4000ms render payout/win message. add to balance here? Play win or lose sound
+		//   output buffer
+		displayFrame(output_buffer);
+
+		//   if >6000ms
+		if (round_elapsed >= 6000) {
+			printf("Enter guess or [Q]uit> ");
+			// waiting for input
+			char play_again_prompt[32];
+			fgets(play_again_prompt, 32, stdin);
+			//     if Q or q: quit
+			if (play_again_prompt[0] == 'Q' || play_again_prompt[0] == 'q') {
+				game_state.is_playing = false;
+			}
+			//     if try to continue with not enough money: "You're broke!" message & wait for input to quit.
+			else if (game_state.balance < game_state.play_cost) {
+				game_state.is_playing = false;
+				printf("You don't have enough money to play. Press enter to exit...");
+				getchar();
+			}
+			else {
+				game_state.balance -= game_state.play_cost;
+				if (play_again_prompt[0] != '\n') {
+					//     if invalid input: don't reset and wait for input again.
+					while (parseInt(play_again_prompt, &game_state.guess) != 0) {
+						printf("Unable to parse. Try entering your guess again> ");
+						fgets(play_again_prompt, 128, stdin);
+					}
+				}
+				//     if new guess: split digits, generate new target, calculate payout, set new round_start time
+				game_state.target = rand() % 100;
+				splitDigits(game_state.target, &game_state.target_digits[0], &game_state.target_digits[1]);
+				game_state.round_payout = calculatePayout(game_state.guess_digits, game_state.target_digits);
+				game_state.round_start_ms = GetTickCount64();
+			}
+		}
+		Sleep(50);
+	}
+}
 
 int main(int argc, char* argv[]) {
 	// parse input argument strings. returns -1 (and sets help flag) if error
@@ -164,88 +295,182 @@ int main(int argc, char* argv[]) {
 	// convert input values:
 	// if can't convert value to int:
 	//   print error message and return fail
-	int guess;
-	if (parseInt(arg_struct.guess_str, &guess) != 0) {
+	Game game_state = {
+		.balance = 5000,		// Start player with $5000 balance.
+		.play_cost = 490,		// Odds of a win are 42 in 100 (1/100 max + 1/100 med + 40/100 low). Mean payout should be about $530 per play.
+				                //   Cost < 530 is an edge for the player, cost > 530 is an edge for the house.
+		.guess = NULL,
+		.guess_digits = NULL,
+		.target = NULL,
+		.target_digits = NULL,
+		.round_start_ms = 0,
+		.is_playing = true,
+		.round_payout = 0,
+	};
+	if (parseInt(arg_struct.guess_str, &game_state.guess) != 0) {
 		fputs("Unable to parse provided [guess].", stderr);
 		return EXIT_FAILURE;
 	}
 
-	// if this was played continuously, this would be the top of the game loop. Start player with $5000 balance.
-	int balance = 5000;
-	// Odds of a win are 42 in 100 (1/100 max + 1/100 med + 40/100 low). Mean payout should be about $530 per play.
-	// Cost less than 530 is an edge for the player, cost more than 530 is an edge for the house.
-	int play_cost = 490;
-	bool playing = true;
-	while (playing) {
-		// split input digits. Do this first to also validate input range before
-		// we bother to generate the target.
-		int guess_digits[2];
-		if (splitDigits(guess, &guess_digits[0], &guess_digits[1])) {
-			fputs("Provided guess must be between 0 and 99.", stderr);
-			return EXIT_FAILURE;
-		}
+	// split input digits. Do this first to also validate input range before
+	// we bother to generate the target.
+	if (splitDigits(game_state.guess, &game_state.guess_digits[0], &game_state.guess_digits[1])) {
+		fputs("Provided guess must be between 0 and 99.", stderr);
+		return EXIT_FAILURE;
+	}
 
-		// generate target
-		srand(GetTickCount64());
-		int target = rand() % 100;
+	// generate target
+	srand(GetTickCount64()); // milliseconds since system boot
+	game_state.target = rand() % 100;
 
-		// split target digits
-		int target_digits[2];
-		splitDigits(target, &target_digits[0], &target_digits[1]); // no need to check success, we know target must be in range
+	// split target digits
+	splitDigits(game_state.target, &game_state.target_digits[0], &game_state.target_digits[1]); // no need to check success, we know target must be in range
 
-		int payout = calculatePayout(guess_digits, target_digits);
-		balance += payout;
+	game_state.round_payout = calculatePayout(game_state.guess_digits, game_state.target_digits);
+	game_state.balance += game_state.round_payout;
+
+	runGameLoop(game_state);
+
+	do {
 
 		// output
-		printf("You guessed %02d and the winning number was %02d.\n", guess, target);
-		if (payout == 0) {
+		printf("You guessed %02d and the winning number was %02d.\n", game_state.guess, game_state.target);
+		if (game_state.round_payout == 0) {
 			puts("Maybe next time!");
 		}
 		else {
-			printf("You won $%d!\n", payout);
+			printf("You won $%d!\n", game_state.round_payout);
 		}
 
-		play_generated_sound(payout > 0);
+		play_generated_sound(game_state.round_payout > 0);
+		Sleep(2000); // Sound plays asynchronously. Wait until sound has played before prompting for input.
 
-		printf("\nBalance: $%d. Enter number to play again (blank = same guess) for $%d or Q to quit> ", balance, play_cost);
+		//system("cls"); // clear screen
+
+		printf("Balance: $%d. Enter number to play again (blank = same guess) for $%d or Q to quit> ", game_state.balance, game_state.play_cost);
 		char play_again_prompt[128];
 		fgets(play_again_prompt, 128, stdin);
 		if (play_again_prompt[0] == 'Q' || play_again_prompt[0] == 'q') {
-			playing = false;
+			game_state.is_playing = false;
 		}
-		else if (balance < play_cost) {
-			playing = false;
+		else if (game_state.balance < game_state.play_cost) {
+			game_state.is_playing = false;
 			printf("You don't have enough money to play. Press enter to exit...");
 			getchar();
 		}
 		else {
-			balance -= play_cost;
+			game_state.balance -= game_state.play_cost;
 			if (play_again_prompt[0] != '\n') {
-				while (parseInt(play_again_prompt, &guess) != 0) {
+				while (parseInt(play_again_prompt, &game_state.guess) != 0) {
 					printf("Unable to parse. Try entering your guess again> ");
 					fgets(play_again_prompt, 128, stdin);
 				}
 			}
+			// generate new target
+			game_state.target = rand() % 100;
+			splitDigits(game_state.target, &game_state.target_digits[0], &game_state.target_digits[1]);
+			game_state.round_payout = calculatePayout(game_state.guess_digits, game_state.target_digits);
 		}
-	}
+	} while (game_state.is_playing);
 
 	return EXIT_SUCCESS;
 }
 
 
-// Sound generator
+// Helper to display a frame of the game output
+void displayFrame(wchar_t* output_buffer) {
+	system("cls"); // clear screen. probably a better way to do this with Win32 Console API calls, but I didn't want to figure that out.
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	WriteConsoleW(hConsole, output_buffer, 32*9, NULL, NULL); // couldn't get wprint to work
+}
 
-#include <windows.h>
-#include <mmsystem.h>
-#include <stdint.h>
-#include <math.h>
-#include <stdio.h>
+
+// Digits the get rendered as the slot wheels, like:
+//   █ 
+// ███ 
+//   █ 
+//   █ 
+// █████
+const wchar_t wheel_digits[60][5] = {
+	{L'█', L'█', L'█', L'█', L'█'}, // 0
+	{L'█', L' ', L' ', L' ', L'█'},
+	{L'█', L' ', L' ', L' ', L'█'},
+	{L'█', L' ', L' ', L' ', L'█'},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L' ', L' ', L' ', L' ', L' '},
+	{L' ', L' ', L'█', L' ', L' '}, // 1
+	{L'█', L'█', L'█', L' ', L' '},
+	{L' ', L' ', L'█', L' ', L' '},
+	{L' ', L' ', L'█', L' ', L' '},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L' ', L' ', L' ', L' ', L' '},
+	{L'█', L'█', L'█', L'█', L'█'}, // 2
+	{L' ', L' ', L' ', L' ', L'█'},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L'█', L' ', L' ', L' ', L' '},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L' ', L' ', L' ', L' ', L' '},
+	{L'█', L'█', L'█', L'█', L'█'}, // 3
+	{L' ', L' ', L' ', L' ', L'█'},
+	{L' ', L'█', L'█', L'█', L'█'},
+	{L' ', L' ', L' ', L' ', L'█'},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L' ', L' ', L' ', L' ', L' '},
+	{L' ', L'█', L' ', L' ', L'█'}, // 4
+	{L'█', L' ', L' ', L' ', L'█'},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L' ', L' ', L' ', L' ', L'█'},
+	{L' ', L' ', L' ', L' ', L'█'},
+	{L' ', L' ', L' ', L' ', L' '},
+	{L'█', L'█', L'█', L'█', L'█'}, // 5
+	{L'█', L' ', L' ', L' ', L' '},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L' ', L' ', L' ', L' ', L'█'},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L' ', L' ', L' ', L' ', L' '},
+	{L'█', L'█', L'█', L'█', L'█'}, // 6
+	{L'█', L' ', L' ', L' ', L' '},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L'█', L' ', L' ', L' ', L'█'},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L' ', L' ', L' ', L' ', L' '},
+	{L'█', L'█', L'█', L'█', L'█'}, // 7
+	{L' ', L' ', L' ', L' ', L'█'},
+	{L' ', L' ', L'█', L'█', L' '},
+	{L' ', L' ', L'█', L' ', L' '},
+	{L' ', L' ', L'█', L' ', L' '},
+	{L' ', L' ', L' ', L' ', L' '},
+	{L'█', L'█', L'█', L'█', L'█'}, // 8
+	{L'█', L' ', L' ', L' ', L'█'},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L'█', L' ', L' ', L' ', L'█'},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L' ', L' ', L' ', L' ', L' '},
+	{L'█', L'█', L'█', L'█', L'█'}, // 9
+	{L'█', L' ', L' ', L' ', L'█'},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L' ', L' ', L' ', L' ', L'█'},
+	{L'█', L'█', L'█', L'█', L'█'},
+	{L' ', L' ', L' ', L' ', L' '},
+};
+
+/****************************************************************
+*               Sound Generator (Windows only)                  *
+* I needed to find samples for most of this as a reference,     *
+* but needed to understand how it works to change the melodies, *
+* and change the tone to square wave instead of pure sine wave. *
+* Comments are added by me as I figured out how it works.       *
+*****************************************************************/
 
 #pragma comment(lib, "winmm.lib")
 
 #define SAMPLE_RATE 44100
 #define DURATION 2.0
 #define AMPLITUDE 10000
+#ifndef M_PI
+	#define M_PI 3.141592653589793 // Visual studio doesn't define M_PI in this implementation of math.h
+#endif // !M_PI
+
 
 // WAV header structure
 typedef struct {
@@ -283,11 +508,11 @@ void writeWAVHeader(uint8_t* buffer, int dataSize) {
 	memcpy(buffer, &header, sizeof(header));
 }
 
-void generateTone(int16_t* samples, double freq, double duration, int offset) {
-	int count = (int)(SAMPLE_RATE * duration);
+void generateSquareTone(int16_t* sample_buffer, double freq, double duration, int offset) {
+	int count = (int)(SAMPLE_RATE * duration); // how many samples/"frames" to run this tone for?
 	for (int i = 0; i < count; i++) {
 		double t = (double)i / SAMPLE_RATE;
-		samples[offset + i] = (sin(2 * 3.1415 * freq * t) > 0 ? AMPLITUDE : -AMPLITUDE); // square wave
+		sample_buffer[offset + i] = (sin(2 * M_PI * freq * t) > 0 ? AMPLITUDE : -AMPLITUDE); // square wave as a function of time
 	}
 }
 
@@ -296,38 +521,37 @@ void play_generated_sound(bool win) {
 	int dataSize = totalSamples * sizeof(int16_t);
 	int totalSize = sizeof(WAVHeader) + dataSize;
 
-	uint8_t* buffer = (uint8_t*)malloc(totalSize);
-	int16_t* samples = (int16_t*)(buffer + sizeof(WAVHeader));
+	uint8_t* buffer = (uint8_t*)malloc(totalSize); // pointer block of memory to store the generated sound buffer
+	int16_t* sample_buffer = (int16_t*)(buffer + sizeof(WAVHeader)); // pointer to an offset in the buffer to start storing sound data (after header)
 
 	writeWAVHeader(buffer, dataSize);
 
-	// Win melody C6 G5 F5 C5 x6
+	// Winning melody: C6 G5 F5 C5 x6
 	double win_tones[24] = {
-			1046.50, 783.99, 698.46, 523.25, 1046.50, 783.99, 698.46, 523.25, 1046.50, 783.99, 698.46, 523.25,
-			1046.50, 783.99, 698.46, 523.25, 1046.50, 783.99, 698.46, 523.25, 1046.50, 783.99, 698.46, 523.25
+			1046.50, 783.99, 698.46, 523.25, /**/ 1046.50, 783.99, 698.46, 523.25, /**/ 1046.50, 783.99, 698.46, 523.25,
+			1046.50, 783.99, 698.46, 523.25, /**/ 1046.50, 783.99, 698.46, 523.25, /**/ 1046.50, 783.99, 698.46, 523.25
 	};
-	
-	// Lose melody C5 G4 E4 C4 x6
+
+	// Losing melody: B5 G4b E4b C4 x6
 	double lose_tones[4] = {
-		523.25, 392.00, 329.63, 261.63
+		493.88, 369.99, 311.13, 261.63
 	};
-	
+
 	if (win) {
 		int samplesPerTone = totalSamples / 24;
 		for (int i = 0; i < 24; i++) {
-			generateTone(samples, win_tones[i], DURATION / 24, i * samplesPerTone);
+			generateSquareTone(sample_buffer, win_tones[i], DURATION / 24, i * samplesPerTone);
 		}
 	}
 	else {
 		int samplesPerTone = totalSamples / 4;
 		for (int i = 0; i < 4; i++) {
-			generateTone(samples, lose_tones[i], DURATION / 4, i * samplesPerTone);
+			generateSquareTone(sample_buffer, lose_tones[i], DURATION / 4, i * samplesPerTone);
 		}
 	}
 
 	// Play directly from memory
-	PlaySound((LPCSTR)buffer, NULL, SND_MEMORY | SND_ASYNC);
+	PlaySound((LPCSTR)buffer, NULL, SND_MEMORY | SND_ASYNC); // SND_ASYNC flag plays sound asynchronously
 
-	Sleep((int)(DURATION * 1000));  // Let it finish
 	free(buffer);
 }

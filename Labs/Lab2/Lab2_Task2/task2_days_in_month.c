@@ -138,16 +138,12 @@ int daysInMonth(int year, int month, int* result) {
 	// 1001 1010  oct 31
 	// 1010 1011  nov 30
 	// 1011 1100  dec 31
-	int days; 
-	if (month == 1) {
-		days = (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? 29 : 28;
-	}
-	else {
-		// 31 days if month+1 low bit is 1 for first 7 months (high bit = 0), then if month+1 low bit is 0
-		days = 30 + (((month + 1) & 0b0001) ^ (month + 1) >> 3);
+	int days = 30 + (((month + 1) & 1) ^ (month + 1) >> 3); // low bit for month+1 is 1 for months with 31 days for the first 7 months, then low bit 0
+	if (month == 1) { // February. -2 days normally or -1 day if leap year.
+		days += (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? -1 : -2;
 	}
 
-	// Can use the following switch statement, but I think the bitwise one-liner is neat. I think they're about the same speed.
+	// Can use the following switch statement, but I think the bitwise one-liner is neat. They're about the same speed.
 	/*
 	switch (month) {
 		case 1:
