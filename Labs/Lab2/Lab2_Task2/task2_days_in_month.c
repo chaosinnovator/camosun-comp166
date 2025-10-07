@@ -15,66 +15,12 @@
 * [year] [month]
 * Where year >= 1 and 0 <= month <= 11
 *
-* If provided arguments are invalid or any argument is /?, output a help description instead.
+* If number of provided arguments is invalid, output a help description instead.
 *
 */
 #include <stdio.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <string.h>
-
-typedef struct {
-	char* year_str;
-	char* month_str;
-	char* unknown_arg;
-	bool help_flag;
-} Arguments;
-
-#define N_MONTHS 12
-const char* month_names[N_MONTHS] = {
-	"January", "February", "March", "April", "May", "June",
-	"July", "August", "September", "October", "November", "December",
-};
-
-/// <summary>
-/// Check that two arguments were provided. Additionally, check if help was requested or if
-/// invalid arguments were provided
-/// <param name="*arg_struct">Where to put result</param>
-/// <returns>Returns 0 if successful, non-zero if not successful.</returns>
-int parseArgs(int argc, char* argv[], Arguments* arg_struct) {
-	// check each provided arg.
-	// if /?, set help_flag to true and return 0
-	// if first char is not / and year_str hasn't been set yet, set it and continue
-	// if first char is not / month_str hasn't been set yet, set it and continue.
-	// if there are any other arguments, set unknown_arg, set help_flag to true, return -1
-	// if not both year_str and month_str were set, set help_flag to true. This covers the case if no arguments provided.
-
-	for (int i = 1; i < argc; i++) // first arg is the program name. skip it.
-	{
-		if (strcmp(argv[i], "/?") == 0) {
-			(*arg_struct).help_flag = true;
-			return 0;
-		}
-		if (argv[i][0] != '/' && (*arg_struct).year_str == NULL) {
-			(*arg_struct).year_str = argv[i];
-			continue;
-		}
-		if (argv[i][0] != '/' && (*arg_struct).month_str == NULL) {
-			(*arg_struct).month_str = argv[i];
-			continue;
-		}
-		(*arg_struct).unknown_arg = argv[i];
-		(*arg_struct).help_flag = true;
-		return -1;
-	}
-	// only need to check month_str to determine if both were set, since they get set in order
-	// if month_str is set, year_str must have also been set already.
-	if ((*arg_struct).month_str == NULL) {
-		(*arg_struct).help_flag = true;
-	}
-	return 0;
-}
 
 /// <summary>
 /// Safely parse an int value from a string.
@@ -92,8 +38,7 @@ int parseInt(char* str, int* result) {
 	// possible cases:
 	//   first_unconverted_character pointer is equal to str (pointer), so nothing was converted
 	//   first_unconverted_character pointer is set, but it isn't \n so something else was encountered that couldn't be converted
-	// 
-	//   errno is set to ERANGE if number is not in range for double
+	//   errno is set to ERANGE if number is not in range for long
 
 	if (first_unconverted_character == str ||
 		(*first_unconverted_character && *first_unconverted_character != '\n')) {
@@ -118,31 +63,11 @@ int parseInt(char* str, int* result) {
 /// <returns>Returns 0 if successful, non-zero if not successful.</returns>
 int daysInMonth(int year, int month, int* result) {
 	// check validity of year number and month
-	if (year <= 0 || month < 0 || month >= N_MONTHS) {
+	if (year <= 0 || month < 0 || month >= 12) {
 		return -1;
 	}
 
-	// mth  mth+1     days
-	// 0000 0001  jan 31
-	// 0001 0010  feb 28 or 29
-	// 0010 0011  mar 31
-	// 0011 0100  apr 30
-	// 0100 0101  may 31
-	// 0101 0110  jun 30
-	// 0110 0111  jul 31
-	// 
-	// 0111 1000  aug 31
-	// 1000 1001  sep 30
-	// 1001 1010  oct 31
-	// 1010 1011  nov 30
-	// 1011 1100  dec 31
-	int days = 30 + (((month + 1) & 1) ^ (month + 1) >> 3); // low bit for month+1 is 1 for months with 31 days for the first 7 months, then low bit 0
-	if (month == 1) { // February. -2 days normally or -1 day if leap year.
-		days += (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? -1 : -2;
-	}
-
-	// Can use the following switch statement, but I think the bitwise one-liner is neat. They're about the same speed.
-	/*
+	int days;
 	switch (month) {
 		case 1:
 			days = (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? 29 : 28;
@@ -156,6 +81,13 @@ int daysInMonth(int year, int month, int* result) {
 		default:
 			days = 31;
 	}
+
+	// Could also use this bitwise one-liner, about the same speed. Left it here since I think it's elegant (though less readable)
+	/*
+	int days = 30 + (((month + 1) & 1) ^ (month + 1) >> 3); // low bit for month+1 is 1 for months with 31 days for the first 7 months, then low bit 0
+	if (month == 1) { // February. -2 days normally or -1 day if leap year.
+		days += (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? -1 : -2;
+	}
 	*/
 
 	*result = days;
@@ -167,45 +99,28 @@ void outputHelp() {
 	puts("Determines the number of days in a provided month\n");
 	puts("Usage: Lab2_Task2 [year] [month_number]");
 	puts("  [year]          The year.");
-	puts("  [month_number]  The month number (0=January, 11=December).");
-	puts("  /?              Display this help page.\n");
+	puts("  [month_number]  The month number (0=January, 11=December).\n");
 }
 
 int main(int argc, char* argv[]) {
-	// parse input argument strings. returns -1 (and sets help flag) if error
-	// if error:
-	//   Unknown argument "[arg]"
-	Arguments arg_struct = {
-		NULL, // year_str
-		NULL, // month_str
-		NULL, // unknown_arg
-		false, // help_flag
-	};
-	if (parseArgs(argc, argv, &arg_struct) != 0) {
-		// there is an unknown argument.
-		printf_s("Unknown argument \"%s\"\n", arg_struct.unknown_arg);
-	}
-
-
-	// if args.help == true
-	//   Print help text
-	//   return success
-	if (arg_struct.help_flag) {
+	// check for correct number of args
+	// [program name] [year] [month]
+	if (argc != 3) {
 		outputHelp();
-		return EXIT_SUCCESS;
+		return EXIT_FAILURE;
 	}
 
 	// convert input values:
-	// if can't convert value to int:
+	// if can't convert value to int (parseDouble returns non-zero if error):
 	//   print error message and return fail
 	int input_year;
-	if (parseInt(arg_struct.year_str, &input_year) != 0) {
+	if (parseInt(argv[1], &input_year) != 0) {
 		fputs("Unable to parse provided [year].", stderr);
 		return EXIT_FAILURE;
 	}
 
 	int input_month;
-	if (parseInt(arg_struct.month_str, &input_month) != 0) {
+	if (parseInt(argv[2], &input_month) != 0) {
 		fputs("Unable to parse provided [month_number].", stderr);
 		return EXIT_FAILURE;
 	}
@@ -218,7 +133,51 @@ int main(int argc, char* argv[]) {
 	}
 
 	// output
-	printf("%s %d has %d days.\n", month_names[input_month], input_year, days);
+	// tidier to use an array like month_names[input_month] to print the month name
+	// using switch statement instead since we haven't learned about arrays beyond argv[] yet.
+	char* month_name;
+	switch (input_month) {
+		case 0:
+			month_name = "January";
+			break;
+		case 1:
+			month_name = "February";
+			break;
+		case 2:
+			month_name = "March";
+			break;
+		case 3:
+			month_name = "April";
+			break;
+		case 4:
+			month_name = "May";
+			break;
+		case 5:
+			month_name = "June";
+			break;
+		case 6:
+			month_name = "July";
+			break;
+		case 7:
+			month_name = "August";
+			break;
+		case 8:
+			month_name = "September";
+			break;
+		case 9:
+			month_name = "October";
+			break;
+		case 10:
+			month_name = "November";
+			break;
+		case 11:
+			month_name = "December";
+			break;
+		default: // this is unreachable since daysInMonth checks that input_month is in range.
+			month_name = "Unknown Month";
+			break;
+	}
+	printf("%s %04d has %d days.\n", month_name, input_year, days);
 
 	return EXIT_SUCCESS;
 }
