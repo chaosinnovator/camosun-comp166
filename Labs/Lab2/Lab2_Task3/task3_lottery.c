@@ -25,27 +25,34 @@
 #include <Windows.h>
 #include <mmsystem.h>
 
+#define JACKPOT_LARGE 10000
+#define JACKPOT_MEDIUM 3000
+#define JACKPOT_SMALL 1000
+
 typedef struct {
 	char* guess_str;
 	char* unknown_arg;
 	bool help_flag;
 } Arguments;
 
-#define JACKPOT_LARGE 10000
-#define JACKPOT_MEDIUM 3000
-#define JACKPOT_SMALL 1000
-
 typedef struct {
 	unsigned short balance;
 	unsigned short play_cost;
 	unsigned short guess;
-	unsigned char guess_digits[2];
+	unsigned short guess_digits[2];
 	unsigned short target;
-	unsigned char target_digits[2];
+	unsigned short target_digits[2];
 	unsigned long round_start_ms; // used for animation frames and to determine state
 	bool is_playing;
 	unsigned short round_payout;
 } Game;
+
+// declared here but defined later since these are for extra functionality.
+void runGameLoop(Game game_state);
+void displayFrame(wchar_t* output_buffer);
+void playWinSound(float duration);
+void playLoseSound(float duration);
+const wchar_t wheel_digits[60][5];
 
 /// <summary>
 /// Check that one argument were provided. Additionally, check if help was requested or if
@@ -121,8 +128,8 @@ int parseInt(char* str, int* result) {
 /// <param name="*result_tens">Where to put tens</param>
 /// <param name="*result_ones">Where to put ones</param>
 /// <returns>Returns 0 if successful, non-zero if not successful.</returns>
-int splitDigits(int n, char* result_tens, char* result_ones) {
-	// check validity of year number and month
+int splitDigits(int n, short* result_tens, short* result_ones) {
+	// check validity of guess
 	if (n < 0 || n > 99) {
 		return -1;
 	}
@@ -133,7 +140,13 @@ int splitDigits(int n, char* result_tens, char* result_ones) {
 	return 0;
 }
 
-int calculatePayout(char guess_digits[2], char target_digits[2]) {
+/// <summary>
+/// Compares the guess with the target using the lottery payout calculation rules and returns the payout amount.
+/// </summary>
+/// <param name="*guess_digits">Array of two integers</param>
+/// <param name="*target_digits">Array of two integers</param>
+/// <returns>Payout amount</returns>
+int calculatePayout(short* guess_digits, short* target_digits) {
 	if (guess_digits[0] == target_digits[0] && guess_digits[1] == target_digits[1]) { // 2x correct and right order
 		return JACKPOT_LARGE;
 	}
@@ -152,122 +165,6 @@ void outputHelp() {
 	puts("Usage: Lab2_Task3 [guess]");
 	puts("  [guess]  Number to guess. Integer from 0 to 99 inclusive.");
 	puts("  /?       Display this help page.\n");
-}
-
-// declared here but defined later since it's not central to this lab
-void displayFrame(wchar_t* output_buffer);
-void play_generated_sound(bool);
-const wchar_t wheel_digits[60][5];
-
-void runGameLoop(Game game_state) {
-	// set round_start time
-	game_state.round_start_ms = GetTickCount64();
-	// set up output rendering buffer with frame (frame shouldn't need to be re-rendered)
-	wchar_t output_buffer[32*9] =
-		L"    ╔══════════╦══════════╗    \n"
-		L"    ║ $ 000000 ║ Bet 0000 ║    \n"
-		L"╔═══╬══════════╩══════════╬═══╗\n"
-		L"║ ♦ ║                     ║ ♠ ║\n"
-		L"╠═══╣                     ╠═══╣\n"
-		L"║ ♣ ║                     ║ ♥ ║\n"
-		L"╠═══╣                     ╠═══╣\n"
-		L"║ ♠ ║                     ║ ♦ ║\n"
-		L"╚═══╩═════════════════════╩═══╝\n";
-		// Enter guess or [Q]uit> ##
-	// set up wheel digit array
-	//    (made it a global const instead)
-	// render frame to buffer. This should never have to be re-rendered
-	// // ═ ║ ╔ ╗ ╚ ╝ ╠ ╣ ╦ ╩ ╬
-	// ♠ ♥ ♣ ♦
-	
-	
-	// render play_cost to buffer. this should never have to be re-rendered
-	wchar_t num_buffer[16];
-	swprintf_s(num_buffer, 16, L"%04d", game_state.play_cost > 9999 ? 9999 : game_state.play_cost);
-	for (int i = 0; i < 4; i++) {
-		output_buffer[(32 * 1 + 21) + i] = num_buffer[i];
-	}
-	// 
-	// while playing
-	unsigned long round_elapsed = 0;
-	unsigned int wheel_offset_left = 0;
-	unsigned int wheel_offset_right = 0;
-	while (game_state.is_playing) {
-		//   check round elapsed time
-		round_elapsed = GetTickCount64() - game_state.round_start_ms;
-		//   render frame decorations
-		//   determine wheel display offsets, based on round elapsed time.
-		//		<2000 ms, left wheel still spinning. speed = 10.0 digits per second. 6 rows per digit, gap each 6th row
-		// play 2-wheel spinning sound.
-		if (round_elapsed < 2000) {
-			wheel_offset_left = (int)((game_state.target_digits[0] - (4.0 * (float)round_elapsed / 1000.0)) * 6) % 10;
-		}
-		else {
-			wheel_offset_left = game_state.target_digits[0] * 6;
-		}
-		//		<4000 ms, right wheel still spinning
-		// play 1-wheel spinning sound
-		if (round_elapsed < 4000) {
-			wheel_offset_right = (int)((game_state.target_digits[1] - (4.0 * (float)round_elapsed / 1000.0)) * 6) % 10;
-		}
-		else {
-			wheel_offset_right = game_state.target_digits[1] * 6;
-		}
-		//   render wheels to the output buffer (only renders 5 rows)
-		// left wheel
-		for (int row = 0; row < 5; row++) {
-			for (int col = 0; col < 5; col++) {
-				output_buffer[(32 * (3 + row)) + (9 + col)] = wheel_digits[(wheel_offset_left + row) % 60][col];
-			}
-		}
-		// right wheel
-		for (int row = 0; row < 5; row++) {
-			for (int col = 0; col < 5; col++) {
-				output_buffer[(32 * (3 + row)) + (17 + col)] = wheel_digits[(wheel_offset_right + row) % 60][col];
-			}
-		}
-		//   render guess.
-		//   render balance. balance-payout if 500-4000ms, balance if >6000ms,
-		//		animated decreasing from balance-payout+cost to balance-payout if <500ms,
-		//      animated increasing from balance-payout to balance 4000-6000ms (if not win, still animate, but +0 doesn't do anything)
-		//   if >4000ms render payout/win message. add to balance here? Play win or lose sound
-		//   output buffer
-		displayFrame(output_buffer);
-
-		//   if >6000ms
-		if (round_elapsed >= 6000) {
-			printf("Enter guess or [Q]uit> ");
-			// waiting for input
-			char play_again_prompt[32];
-			fgets(play_again_prompt, 32, stdin);
-			//     if Q or q: quit
-			if (play_again_prompt[0] == 'Q' || play_again_prompt[0] == 'q') {
-				game_state.is_playing = false;
-			}
-			//     if try to continue with not enough money: "You're broke!" message & wait for input to quit.
-			else if (game_state.balance < game_state.play_cost) {
-				game_state.is_playing = false;
-				printf("You don't have enough money to play. Press enter to exit...");
-				getchar();
-			}
-			else {
-				game_state.balance -= game_state.play_cost;
-				if (play_again_prompt[0] != '\n') {
-					//     if invalid input: don't reset and wait for input again.
-					while (parseInt(play_again_prompt, &game_state.guess) != 0) {
-						printf("Unable to parse. Try entering your guess again> ");
-						fgets(play_again_prompt, 128, stdin);
-					}
-				}
-				//     if new guess: split digits, generate new target, calculate payout, set new round_start time
-				game_state.target = rand() % 100;
-				splitDigits(game_state.target, &game_state.target_digits[0], &game_state.target_digits[1]);
-				game_state.round_payout = calculatePayout(game_state.guess_digits, game_state.target_digits);
-				game_state.round_start_ms = GetTickCount64();
-			}
-		}
-		Sleep(50);
-	}
 }
 
 int main(int argc, char* argv[]) {
@@ -292,13 +189,11 @@ int main(int argc, char* argv[]) {
 		return EXIT_SUCCESS;
 	}
 
-	// convert input values:
-	// if can't convert value to int:
-	//   print error message and return fail
+	// Initialize game state (
 	Game game_state = {
 		.balance = 5000,		// Start player with $5000 balance.
-		.play_cost = 490,		// Odds of a win are 42 in 100 (1/100 max + 1/100 med + 40/100 low). Mean payout should be about $530 per play.
-				                //   Cost < 530 is an edge for the player, cost > 530 is an edge for the house.
+		.play_cost = 490,		// Odds of any win are 42 in 100 (1/100 max + 1/100 med + 40/100 low). Mean payout should be about $530 per play (napkin math).
+		                        //   Cost < 530 is an edge for the player, cost > 530 is an edge for the house.
 		.guess = NULL,
 		.guess_digits = NULL,
 		.target = NULL,
@@ -307,6 +202,10 @@ int main(int argc, char* argv[]) {
 		.is_playing = true,
 		.round_payout = 0,
 	};
+
+	// convert input values:
+	// if can't convert value to int:
+	//   print error message and return fail
 	if (parseInt(arg_struct.guess_str, &game_state.guess) != 0) {
 		fputs("Unable to parse provided [guess].", stderr);
 		return EXIT_FAILURE;
@@ -319,79 +218,275 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	// generate target
+	// generate target, split target digits, determine digits
 	srand(GetTickCount64()); // milliseconds since system boot
 	game_state.target = rand() % 100;
-
-	// split target digits
 	splitDigits(game_state.target, &game_state.target_digits[0], &game_state.target_digits[1]); // no need to check success, we know target must be in range
 
 	game_state.round_payout = calculatePayout(game_state.guess_digits, game_state.target_digits);
+
+	/**********************************************************************************
+	* Regular lab would end here with a printf to display the payout amount.          *
+	* Instead, we'll enter a game loop to display a "slot machine" to present         *
+	* the result in a more interactive way with animation, sound, and replay options. *
+	**********************************************************************************/
+
+	//printf("You won $%d!", game_state.round_payout);
+
 	game_state.balance += game_state.round_payout;
-
+	system("cls"); // clear screen. probably a better way to do this with Win32 Console API calls, but I didn't bother to figure that out.
 	runGameLoop(game_state);
-
-	do {
-
-		// output
-		printf("You guessed %02d and the winning number was %02d.\n", game_state.guess, game_state.target);
-		if (game_state.round_payout == 0) {
-			puts("Maybe next time!");
-		}
-		else {
-			printf("You won $%d!\n", game_state.round_payout);
-		}
-
-		play_generated_sound(game_state.round_payout > 0);
-		Sleep(2000); // Sound plays asynchronously. Wait until sound has played before prompting for input.
-
-		//system("cls"); // clear screen
-
-		printf("Balance: $%d. Enter number to play again (blank = same guess) for $%d or Q to quit> ", game_state.balance, game_state.play_cost);
-		char play_again_prompt[128];
-		fgets(play_again_prompt, 128, stdin);
-		if (play_again_prompt[0] == 'Q' || play_again_prompt[0] == 'q') {
-			game_state.is_playing = false;
-		}
-		else if (game_state.balance < game_state.play_cost) {
-			game_state.is_playing = false;
-			printf("You don't have enough money to play. Press enter to exit...");
-			getchar();
-		}
-		else {
-			game_state.balance -= game_state.play_cost;
-			if (play_again_prompt[0] != '\n') {
-				while (parseInt(play_again_prompt, &game_state.guess) != 0) {
-					printf("Unable to parse. Try entering your guess again> ");
-					fgets(play_again_prompt, 128, stdin);
-				}
-			}
-			// generate new target
-			game_state.target = rand() % 100;
-			splitDigits(game_state.target, &game_state.target_digits[0], &game_state.target_digits[1]);
-			game_state.round_payout = calculatePayout(game_state.guess_digits, game_state.target_digits);
-		}
-	} while (game_state.is_playing);
 
 	return EXIT_SUCCESS;
 }
 
 
+/****************************************************************
+*              Functions for extra functionality                *
+****************************************************************/
+
+#define FRAME_COLUMNS 32
+#define FRAME_ROWS 9
+#define DIGIT_WIDTH 5
+#define DIGIT_HEIGHT 6
+#define N_DECORATIONS 8
+#define DECORATION_ANIMATION_INTERVAL 180
+#define LEFT_WHEEL_SPIN_DURATION 5000
+#define RIGHT_WHEEL_SPIN_DURATION 7000 // Must be >= LEFT_WHEEL_SPIN_DURATION
+#define PAYOUT_ANIMATION_DURATION 2000
+#define COST_ANIMATION_DURATION 1000
+#define LEFT_WHEEL_ACCELERATION 1.0
+#define RIGHT_WHEEL_ACCELERATION 0.6
+#define FPS_TARGET 30
+
+void runGameLoop(Game game_state) {
+	// set round_start time
+	game_state.round_start_ms = GetTickCount64();
+	// set up output rendering buffer with frame (frame shouldn't need to be re-rendered)
+	// ═ ║ ╔ ╗ ╚ ╝ ╠ ╣ ╦ ╩ ╬ ♠ ♥ ♣ ♦   <-- characters used (here for easy copy/pasting).
+	// Unicode characters, so from here onwards all output strings use wchars.
+	wchar_t output_buffer[FRAME_COLUMNS * FRAME_ROWS] =
+		L"╔═══╦══════════╦══════════╦═══╗\n"
+		L"║ ♠ ║ $ ------ ║ Bet ---- ║ ♣ ║\n"
+		L"╠═══╬══════════╩══════════╬═══╣\n"
+		L"║ ♦ ║                     ║ ♠ ║\n"
+		L"╠═══╣                     ╠═══╣\n"
+		L"║ ♣ ║  ►               ◄  ║ ♥ ║\n"
+		L"╠═══╣                     ╠═══╣\n"
+		L"║ ♠ ║                     ║ ♦ ║\n"
+		L"╚═══╩═════════════════════╩═══╝\n";
+	   // Enter guess or [Q]uit> ##
+	// set up wheel digit array (made it a global const instead)
+
+	wchar_t decoration_chars[4] = {L'♠', L'♥', L'♣', L'♦'};
+	// array of int[2] representing {row, col} position of each decoration character
+	unsigned short deco_char_positions[N_DECORATIONS][2] = {
+		{1, 2},
+		{3, 2},
+		{5, 2},
+		{7, 2},
+		{1, 28},
+		{3, 28},
+		{5, 28},
+		{7, 28},
+	};
+
+	// render play_cost to buffer. this should never have to be re-rendered
+	wchar_t num_buffer[16]; // buffer to printf formatted strings to before copying to output_buffer
+	swprintf_s(num_buffer, 16, L"%04d", game_state.play_cost > 9999 ? 9999 : game_state.play_cost);
+	for (int i = 0; i < 4; i++) {
+		output_buffer[(FRAME_COLUMNS * 1 + 21) + i] = num_buffer[i];
+	}
+
+	// enter game loop
+	unsigned long round_elapsed = 0;
+	unsigned long frame_start = 0;
+	unsigned int wheel_offset_left = 0;
+	unsigned int wheel_offset_right = 0;
+	unsigned int rendered_balance = 0;
+	bool played_end_sound = false;
+	unsigned long last_decoration_animation = 0;
+	while (game_state.is_playing) {
+		// check round elapsed time
+		frame_start = GetTickCount64();
+		round_elapsed = frame_start - game_state.round_start_ms;
+		// render frame decorations
+		if (round_elapsed - last_decoration_animation > DECORATION_ANIMATION_INTERVAL) {
+			last_decoration_animation = round_elapsed;
+			for (int i = 0; i < N_DECORATIONS; i++) {
+				output_buffer[(FRAME_COLUMNS * deco_char_positions[i][0]) + deco_char_positions[i][1]] = decoration_chars[rand() % 4];
+			}
+		}
+		
+		// Determine digit wheel positions
+		// Left wheel spins for 2000ms
+		// play 2-wheel spinning sound.
+		if (round_elapsed < LEFT_WHEEL_SPIN_DURATION) {
+			// digit# - accel*t*t --> convert to digit coordinate based on DIGIT_HEIGHT
+			wheel_offset_left = (int)((game_state.target_digits[0] - LEFT_WHEEL_ACCELERATION * ((LEFT_WHEEL_SPIN_DURATION - (float)round_elapsed) / 1000.0) * ((LEFT_WHEEL_SPIN_DURATION - (float)round_elapsed) / 1000.0)) * DIGIT_HEIGHT);
+		}
+		else {
+			wheel_offset_left = game_state.target_digits[0] * DIGIT_HEIGHT;
+		}
+		// Right wheel spins for 4000ms
+		// play 1-wheel spinning sound
+		if (round_elapsed < RIGHT_WHEEL_SPIN_DURATION) {
+			// digit# - accel*t*t --> convert to digit coordinate based on DIGIT_HEIGHT
+			wheel_offset_right = (int)((game_state.target_digits[1] - RIGHT_WHEEL_ACCELERATION * ((RIGHT_WHEEL_SPIN_DURATION - (float)round_elapsed) / 1000.0) * ((RIGHT_WHEEL_SPIN_DURATION - (float)round_elapsed) / 1000.0)) * DIGIT_HEIGHT);
+		}
+		else {
+			wheel_offset_right = game_state.target_digits[1] * DIGIT_HEIGHT;
+		}
+
+		// Render wheels to the output buffer (only renders 5 rows since that is the available space inside the frame design)
+		// left wheel
+		for (int row = 0; row < 5; row++) {
+			for (int col = 0; col < DIGIT_WIDTH; col++) {
+				output_buffer[(FRAME_COLUMNS * (3 + row)) + (9 + col)] = wheel_digits[(wheel_offset_left + row) % (DIGIT_HEIGHT * 10)][col];
+			}
+		}
+		// right wheel
+		for (int row = 0; row < 5; row++) {
+			for (int col = 0; col < DIGIT_WIDTH; col++) {
+				output_buffer[(FRAME_COLUMNS * (3 + row)) + (17 + col)] = wheel_digits[(wheel_offset_right + row) % (DIGIT_HEIGHT * 10)][col];
+			}
+		}
+
+		// Render guess digits
+		swprintf_s(num_buffer, 16, L"%02d", game_state.guess);
+		output_buffer[(FRAME_COLUMNS * 5) + 6] = num_buffer[0];
+		output_buffer[(FRAME_COLUMNS * 5) + 24] = num_buffer[1];
+
+		// Render balance.
+		// animate decreasing from balance-payout+cost to balance-payout if <500ms,
+		if (round_elapsed < COST_ANIMATION_DURATION) {
+			rendered_balance = (int)((game_state.balance - game_state.round_payout) + (float)game_state.play_cost * (1.0 - (float)round_elapsed / COST_ANIMATION_DURATION));
+		}
+		else if (round_elapsed < RIGHT_WHEEL_SPIN_DURATION) {
+			rendered_balance = game_state.balance - game_state.round_payout;
+		}
+		// animate increasing from balance-payout to balance 4000-6000ms (if no payout still animating this is fine because -0*x doesn't do anything)
+		else if (round_elapsed < RIGHT_WHEEL_SPIN_DURATION + PAYOUT_ANIMATION_DURATION) {
+			rendered_balance = (int)(game_state.balance - (float)game_state.round_payout * (RIGHT_WHEEL_SPIN_DURATION + PAYOUT_ANIMATION_DURATION - (float)round_elapsed) / PAYOUT_ANIMATION_DURATION);
+		}
+		else {
+			rendered_balance = game_state.balance;
+		}
+		swprintf_s(num_buffer, 16, L"%06d", rendered_balance > 999999 ? 999999 : rendered_balance);
+		for (int i = 0; i < 6; i++) {
+			output_buffer[(FRAME_COLUMNS * 1 + 8) + i] = num_buffer[i];
+		}
+
+		// If >4000ms render flashing payout/win message. If >6000ms not flashing. Play win/lose sound.
+		if (round_elapsed >= RIGHT_WHEEL_SPIN_DURATION) {
+			if (round_elapsed % 700 < 400 || round_elapsed >= RIGHT_WHEEL_SPIN_DURATION + PAYOUT_ANIMATION_DURATION) {
+				if (game_state.round_payout > 0) {
+					swprintf_s(num_buffer, 16, L"You won $%5d!", game_state.round_payout);
+					//play win sound
+					if (!played_end_sound) {
+						played_end_sound = true;
+						playWinSound(PAYOUT_ANIMATION_DURATION / 1000.0);
+					}
+				}
+				else {
+					swprintf_s(num_buffer, 16, L"═══You lost!═══");
+					//play lose sound
+					if (!played_end_sound) {
+						played_end_sound = true;
+						playLoseSound(PAYOUT_ANIMATION_DURATION / 1000.0);
+					}
+				}
+				for (int i = 0; i < 15; i++) {
+					output_buffer[(FRAME_COLUMNS * 8) + 8 + i] = num_buffer[i];
+				}
+			}
+			else {
+				for (int i = 0; i < 15; i++) {
+					output_buffer[(FRAME_COLUMNS * 8) + 8 + i] = L'═';
+				}
+			}
+		}
+
+		// Render output buffer to console
+		displayFrame(output_buffer);
+
+		// Display menu/prompt if >6000ms
+		if (round_elapsed >= RIGHT_WHEEL_SPIN_DURATION + PAYOUT_ANIMATION_DURATION) {
+			printf("Enter guess or [Q]uit> ");
+			// waiting for input
+			char play_again_prompt[32];
+			fgets(play_again_prompt, 32, stdin);
+			// If Q or q: quit
+			if (play_again_prompt[0] == 'Q' || play_again_prompt[0] == 'q') {
+				game_state.is_playing = false;
+			}
+			// If try to continue with not enough money: "You're broke!" message & wait for input to quit.
+			else if (game_state.balance < game_state.play_cost) {
+				game_state.is_playing = false;
+				printf("You don't have enough money to play. Press enter to exit...");
+				getchar();
+			}
+			else {
+				// If invalid input: don't reset but do another iteration of loop and wait for input again.
+				// No input = play again with same guess.
+				if (play_again_prompt[0] != '\n' && parseInt(play_again_prompt, &game_state.guess) != 0 || game_state.guess > 99) {
+					puts("Invalid input. Try again.");
+					Sleep(1000);
+					system("cls"); // clear screen. probably a better way to do this with Win32 Console API calls, but I didn't bother to figure that out.
+					continue;
+				}
+
+				// Starting a new round, reset: deduct cost, split digits, generate new target, calculate payout, set new round_start time
+				game_state.target = rand() % 100;
+				splitDigits(game_state.target, &game_state.target_digits[0], &game_state.target_digits[1]);
+				splitDigits(game_state.guess, &game_state.guess_digits[0], &game_state.guess_digits[1]);
+
+				game_state.balance -= game_state.play_cost;
+				game_state.round_payout = calculatePayout(game_state.guess_digits, game_state.target_digits);
+				game_state.balance += game_state.round_payout;
+
+				game_state.round_start_ms = GetTickCount64();
+				played_end_sound = false;
+
+				// fix bottom of frame
+				for (int i = 0; i < 15; i++) {
+					output_buffer[(FRAME_COLUMNS * 8) + 8 + i] = L'═';
+				}
+			}
+		}
+		else {
+			// displayFrame doesn't erase the input line(s). Do that here if not showing the menu.
+			printf("                                                                \n");
+			
+			// limit framerate. Subtract frame duration from this for proper FPS rate matching
+			unsigned long frame_duration = (GetTickCount64() - frame_start);
+			if (frame_duration < 1000 / FPS_TARGET) {
+				Sleep(1000 / FPS_TARGET - frame_duration);
+			}
+		}
+	}
+}
+
 // Helper to display a frame of the game output
 void displayFrame(wchar_t* output_buffer) {
-	system("cls"); // clear screen. probably a better way to do this with Win32 Console API calls, but I didn't want to figure that out.
+	COORD coord;
+	coord.X = 0;
+	coord.Y = 0;
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-	WriteConsoleW(hConsole, output_buffer, 32*9, NULL, NULL); // couldn't get wprint to work
+	SetConsoleCursorPosition(hConsole, coord); // Win32 Console API call to move the cursor to top-left
+	WriteConsoleW(hConsole, output_buffer, FRAME_COLUMNS * FRAME_ROWS, NULL, NULL); // couldn't get wprint to work. Win32 Console API call, bypasses printf and outputs UTF-16 directly.
 }
 
 
-// Digits the get rendered as the slot wheels, like:
+// Digits that get rendered as the slot machine wheels, like:
 //   █ 
 // ███ 
 //   █ 
 //   █ 
 // █████
-const wchar_t wheel_digits[60][5] = {
+// 
+// ^ row of ' ' between each digit.
+const wchar_t wheel_digits[DIGIT_HEIGHT * 10][DIGIT_WIDTH] = {
 	{L'█', L'█', L'█', L'█', L'█'}, // 0
 	{L'█', L' ', L' ', L' ', L'█'},
 	{L'█', L' ', L' ', L' ', L'█'},
@@ -416,7 +511,7 @@ const wchar_t wheel_digits[60][5] = {
 	{L' ', L' ', L' ', L' ', L'█'},
 	{L'█', L'█', L'█', L'█', L'█'},
 	{L' ', L' ', L' ', L' ', L' '},
-	{L' ', L'█', L' ', L' ', L'█'}, // 4
+	{L'█', L' ', L' ', L' ', L'█'}, // 4
 	{L'█', L' ', L' ', L' ', L'█'},
 	{L'█', L'█', L'█', L'█', L'█'},
 	{L' ', L' ', L' ', L' ', L'█'},
@@ -436,7 +531,7 @@ const wchar_t wheel_digits[60][5] = {
 	{L' ', L' ', L' ', L' ', L' '},
 	{L'█', L'█', L'█', L'█', L'█'}, // 7
 	{L' ', L' ', L' ', L' ', L'█'},
-	{L' ', L' ', L'█', L'█', L' '},
+	{L' ', L' ', L' ', L'█', L' '},
 	{L' ', L' ', L'█', L' ', L' '},
 	{L' ', L' ', L'█', L' ', L' '},
 	{L' ', L' ', L' ', L' ', L' '},
@@ -460,12 +555,11 @@ const wchar_t wheel_digits[60][5] = {
 * but needed to understand how it works to change the melodies, *
 * and change the tone to square wave instead of pure sine wave. *
 * Comments are added by me as I figured out how it works.       *
-*****************************************************************/
+****************************************************************/
 
 #pragma comment(lib, "winmm.lib")
 
-#define SAMPLE_RATE 44100
-#define DURATION 2.0
+#define SAMPLE_RATE 44100 // samples per second
 #define AMPLITUDE 10000
 #ifndef M_PI
 	#define M_PI 3.141592653589793 // Visual studio doesn't define M_PI in this implementation of math.h
@@ -489,69 +583,82 @@ typedef struct {
 	uint32_t subchunk2Size;
 } WAVHeader;
 
-void writeWAVHeader(uint8_t* buffer, int dataSize) {
+void writeWAVHeader(uint8_t* buffer, int dataSize, int n_channels, int sample_rate) {
+	// See https://en.wikipedia.org/wiki/WAV#WAV_file_header
 	WAVHeader header = {
-		{'R','I','F','F'},
-		36 + dataSize,
-		{'W','A','V','E'},
-		{'f','m','t',' '},
-		16,
-		1, // PCM
-		1, // mono
-		SAMPLE_RATE,
-		SAMPLE_RATE * 2,
-		2,
-		16,
-		{'d','a','t','a'},
-		dataSize
+		"RIFF", // FileTypeBlocID = "RIFF"
+		36 + dataSize, // Remaining file size (total size - 8bytes). Header is 44 bytes, -8 = 36
+		"WAVE", // FileFormatID = "WAVE"
+		// Format chunk
+		"fmt ", // FormatBlocID = "fmt "
+		16, // BlocSize Remaining chunk size (16 bytes) = chunk size - 8 bytes
+		1, // AudioFormat 1=PCM integer, 2
+		n_channels, // NumChannels. 1=mono
+		sample_rate, // Frequency
+		sample_rate * 2 * n_channels, // BytePerSec = Frequency*BytePerBloc
+		2 * n_channels, // BytePerBlock = NbrChannels*BitsPerSample/8
+		16, // BitsPerSample. int16_t = 16 bits
+		// Data chunk
+		"data", // DataBlocID = "data"
+		dataSize // Sample data size
 	};
 	memcpy(buffer, &header, sizeof(header));
 }
 
-void generateSquareTone(int16_t* sample_buffer, double freq, double duration, int offset) {
-	int count = (int)(SAMPLE_RATE * duration); // how many samples/"frames" to run this tone for?
+void generateSquareTone(int16_t* sample_buffer, double freq, double duration, int offset, int sample_rate, int amplitude) {
+	int count = (int)(sample_rate * duration); // how many samples/"frames" to run this tone for?
 	for (int i = 0; i < count; i++) {
-		double t = (double)i / SAMPLE_RATE;
-		sample_buffer[offset + i] = (sin(2 * M_PI * freq * t) > 0 ? AMPLITUDE : -AMPLITUDE); // square wave as a function of time
+		double t = (double)i / sample_rate;
+		sample_buffer[offset + i] = (sin(2 * M_PI * freq * t) > 0 ? amplitude : -amplitude); // square wave as a function of time
 	}
 }
 
-void play_generated_sound(bool win) {
-	int totalSamples = (int)(SAMPLE_RATE * DURATION);
+void getBuffersWithHeader(int sample_rate, float duration_seconds, uint8_t** buffer, int16_t** sample_buffer) {
+	int totalSamples = (int)(sample_rate * duration_seconds);
 	int dataSize = totalSamples * sizeof(int16_t);
 	int totalSize = sizeof(WAVHeader) + dataSize;
 
-	uint8_t* buffer = (uint8_t*)malloc(totalSize); // pointer block of memory to store the generated sound buffer
-	int16_t* sample_buffer = (int16_t*)(buffer + sizeof(WAVHeader)); // pointer to an offset in the buffer to start storing sound data (after header)
+	*buffer = (uint8_t*)malloc(totalSize); // pointer to block of memory to store the generated sound buffer
+	*sample_buffer = (int16_t*)(*buffer + sizeof(WAVHeader)); // pointer to an offset in the buffer to start storing sound data (after header)
 
-	writeWAVHeader(buffer, dataSize);
+	writeWAVHeader(*buffer, dataSize, 1, sample_rate);
+}
+
+void playWinSound(float duration) {
+	uint8_t* buffer;
+	int16_t* sample_buffer;
+	getBuffersWithHeader(SAMPLE_RATE, duration, &buffer, &sample_buffer);
 
 	// Winning melody: C6 G5 F5 C5 x6
-	double win_tones[24] = {
+	double tones[24] = {
 			1046.50, 783.99, 698.46, 523.25, /**/ 1046.50, 783.99, 698.46, 523.25, /**/ 1046.50, 783.99, 698.46, 523.25,
 			1046.50, 783.99, 698.46, 523.25, /**/ 1046.50, 783.99, 698.46, 523.25, /**/ 1046.50, 783.99, 698.46, 523.25
 	};
 
+	int samplesPerTone = SAMPLE_RATE * duration / 24;
+	for (int i = 0; i < 24; i++) {
+		generateSquareTone(sample_buffer, tones[i], duration / 24, i * samplesPerTone, SAMPLE_RATE, AMPLITUDE);
+	}
+
+	PlaySound((LPCSTR)buffer, NULL, SND_MEMORY | SND_ASYNC); // SND_MEMORY flag = play directly from memory. SND_ASYNC flag plays asynchronously
+	free(buffer); // release memory
+}
+
+void playLoseSound(float duration) {
+	uint8_t* buffer;
+	int16_t* sample_buffer;
+	getBuffersWithHeader(SAMPLE_RATE, duration, &buffer, &sample_buffer);
+
 	// Losing melody: B5 G4b E4b C4 x6
-	double lose_tones[4] = {
+	double tones[4] = {
 		493.88, 369.99, 311.13, 261.63
 	};
 
-	if (win) {
-		int samplesPerTone = totalSamples / 24;
-		for (int i = 0; i < 24; i++) {
-			generateSquareTone(sample_buffer, win_tones[i], DURATION / 24, i * samplesPerTone);
-		}
-	}
-	else {
-		int samplesPerTone = totalSamples / 4;
-		for (int i = 0; i < 4; i++) {
-			generateSquareTone(sample_buffer, lose_tones[i], DURATION / 4, i * samplesPerTone);
-		}
+	int samplesPerTone = SAMPLE_RATE * duration / 4;
+	for (int i = 0; i < 4; i++) {
+		generateSquareTone(sample_buffer, tones[i], duration / 4, i * samplesPerTone, SAMPLE_RATE, AMPLITUDE);
 	}
 
-	// Play directly from memory
-	PlaySound((LPCSTR)buffer, NULL, SND_MEMORY | SND_ASYNC); // SND_ASYNC flag plays sound asynchronously
-
-	free(buffer);
+	PlaySound((LPCSTR)buffer, NULL, SND_MEMORY | SND_ASYNC); // SND_MEMORY flag = play directly from memory. SND_ASYNC flag plays asynchronously
+	free(buffer); // release memory
 }

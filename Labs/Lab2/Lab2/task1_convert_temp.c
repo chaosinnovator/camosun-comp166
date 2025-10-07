@@ -16,6 +16,12 @@
 #include <errno.h>
 #include <string.h>
 
+// These constants are used to make outputting a pretty table easier by using fixed-size arrays
+// instead of keeping track of variable length arrays
+#define MAX_N_TABLE_COLUMNS 8
+#define MAX_TABLE_WIDTH 100
+#define MAX_TABLE_VALUE_LENGTH 32
+
 typedef struct {
 	char* value_str;
 	char* unit_str;
@@ -28,12 +34,6 @@ typedef enum {
 	Kelvin,
 	Fahrenheit,
 } TemperatureUnit;
-
-// These constants are used to make outputting a pretty table easier by using fixed-size arrays
-// instead of keeping track of variable length arrays
-#define MAX_N_TABLE_COLUMNS 8
-#define MAX_TABLE_WIDTH 100
-#define MAX_TABLE_VALUE_LENGTH 32
 
 /// <summary>
 /// Check that two arguments were provided. Additionally, check if help was requested or if
@@ -117,6 +117,7 @@ int parseUnit(char* str, TemperatureUnit* result) {
 	// Acceptable values: C, c, Celcius, celcius, K, k, Kelvin, kelvin, F, f, Fahrenheit, or fahrenheit
 	// an alternate option would be to convert str to lowercase first for half as many "strcmp"s. still need to loop through str 7x
 	// or, use a hash function to convert str to an int then compare with pre-computed hashed of each acceptable value for only 1x loop of str.
+	// switch doesn't work since also comparing entire strings
 	if (strcmp(str, "C") == 0 || strcmp(str, "c") == 0 || strcmp(str, "Celcius") == 0 || strcmp(str, "celcius") == 0) {
 		*result = Celcius;
 		return 0;
@@ -219,13 +220,12 @@ int main(int argc, char* argv[]) {
 	// if temp_kelvin < 0:
 	//   print error message and return fail
 	if (temp_kelvin < 0) {
-		fputs("Brrr! The provided [temperature_value] is below absolute zero, which is impossible by definition.", stderr);
+		fputs("Brrr! The provided [temperature_value] is below absolute zero.", stderr);
 		return EXIT_FAILURE;
 	}
 
 	// convert temp_kelvin to temp_celcius and temp_fahrenheit
 	// output the results in a pretty table
-
 	char table_headers[1][MAX_TABLE_VALUE_LENGTH] = { "Converted Temperature" };
 	// convert to table_values
 	char table_values[3][MAX_TABLE_VALUE_LENGTH];
@@ -243,9 +243,6 @@ int main(int argc, char* argv[]) {
 		fputs("Failed to output the table. Too many columns or exceeds max width. Exiting.", stderr);
 		return EXIT_FAILURE;
 	};
-
-	printf("Press enter to exit...");
-	getchar();
 
 	return EXIT_SUCCESS;
 }

@@ -118,10 +118,7 @@ int parseInt(char* str, int* result) {
 /// <returns>Returns 0 if successful, non-zero if not successful.</returns>
 int daysInMonth(int year, int month, int* result) {
 	// check validity of year number and month
-	if (year <= 0) {
-		return -1;
-	}
-	if (month < 0 || month >= N_MONTHS) {
+	if (year <= 0 || month < 0 || month >= N_MONTHS) {
 		return -1;
 	}
 
@@ -133,6 +130,7 @@ int daysInMonth(int year, int month, int* result) {
 	// 0100 0101  may 31
 	// 0101 0110  jun 30
 	// 0110 0111  jul 31
+	// 
 	// 0111 1000  aug 31
 	// 1000 1001  sep 30
 	// 1001 1010  oct 31
@@ -221,9 +219,6 @@ int main(int argc, char* argv[]) {
 
 	// output
 	printf("%s %d has %d days.\n", month_names[input_month], input_year, days);
-
-	printf("Press enter to exit...");
-	getchar();
 
 	return EXIT_SUCCESS;
 }
