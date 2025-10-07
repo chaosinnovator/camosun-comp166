@@ -18,8 +18,5 @@
     <ClCompile Include="task3_lottery.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="bak\task3_lottery_advanced.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
 </Project>
