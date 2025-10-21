@@ -14,7 +14,7 @@
 #define COMPOUND_PER_YEAR 12
 #define INTEREST_RATE 0.025
 #define DISPLAY_YEARS 5
-#define CENTS 100
+#define CENTS_PER_DOLLAR 100
 
 int main() {
     double realRate = 1 + INTEREST_RATE / COMPOUND_PER_YEAR;
@@ -60,7 +60,7 @@ int main() {
             }
 
             // success
-            balance[0] *= CENTS;
+            balance[0] *= CENTS_PER_DOLLAR;
             break;
         }
         
@@ -78,8 +78,8 @@ int main() {
             printf(
                 "year %d:  $%ld.%02ld\n",
                 year,
-                balance[year] / CENTS,
-                balance[year] % CENTS
+                balance[year] / CENTS_PER_DOLLAR,
+                balance[year] % CENTS_PER_DOLLAR
             );
         }
     }

@@ -85,10 +85,12 @@ int daysInMonth(int year, int month, int* result) {
 	// Could also use this bitwise one-liner, about the same speed. Left it here since I think it's elegant (though less readable)
 	/*
 	int days = 30 + (((month + 1) & 1) ^ (month + 1) >> 3); // low bit for month+1 is 1 for months with 31 days for the first 7 months, then low bit 0
+
 	if (month == 1) { // February. -2 days normally or -1 day if leap year.
 		days += (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? -1 : -2;
 	}
 	*/
+	
 
 	*result = days;
 
