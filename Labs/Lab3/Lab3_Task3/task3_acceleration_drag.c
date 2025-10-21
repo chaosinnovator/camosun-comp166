@@ -1,7 +1,7 @@
 ﻿/*
 * 2025F COMP-166 Lab 3 - Thomas Boland - C0556991
 *
-* This program prints a right triangle, isosceles triangle, or diamond (inverted or not), using a specified character.
+* This program simulates the velocity and position of a falling object with atmospheric drag.
 *
 */
 
