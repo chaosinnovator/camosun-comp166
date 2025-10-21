@@ -27,6 +27,8 @@ int getMoneyInput(bool* success) {
 	while (!(*success)) {
 		printf("Enter amount of cash in dollars and cents (like 10.23): $");
 
+		// TODO handle ".3", ".065", "10."; allow "12"?
+
 		// get up to 128 characters of input or up to newline
 		// fgets returns NULL in the event reading input failed
 		if (fgets(input_buf, 128, stdin) == NULL) {
@@ -45,7 +47,7 @@ int getMoneyInput(bool* success) {
 		//   first_unconverted_character pointer is set, but it isn't '.' so something else was encountered that couldn't be converted
 
 		if (first_unconverted_character == input_buf ||
-		    (*first_unconverted_character && *first_unconverted_character != '.')) {
+		    (first_unconverted_character && *first_unconverted_character != '.')) {
 			puts("Unable to properly convert input. Please try again.");
 			continue;
 		}
@@ -61,13 +63,15 @@ int getMoneyInput(bool* success) {
 		errno = 0;
 		cents_input_value = strtol(first_unconverted_character + 1, &second_unconverted_character, 10); // base = 10
 
-		// check that dollar amount converted properly
+		// check that cents amount converted properly
 		// possible cases:
 		//   second_unconverted_character pointer is equal to input_buffer (pointer), so nothing was converted
 		//   second_unconverted_character pointer is set, but it isn't '\n' so something else was encountered that couldn't be converted
+		//   second_unconverted_character - first_unconverted_character is not 3; cents must be 2 characters long, +1 for '.'
 
 		if (second_unconverted_character == input_buf ||
-			(*second_unconverted_character && *second_unconverted_character != '\n')) {
+			(second_unconverted_character && *second_unconverted_character != '\n') ||
+			(second_unconverted_character - first_unconverted_character != 3)) {
 			puts("Unable to properly convert input. Please try again.");
 			continue;
 		}
@@ -117,19 +121,24 @@ int drawChangeFromInventory(int amount, int* change, int inventory[][2], int n_d
 void outputChange(const int amount, const int* change, const int inventory[][2], int n_denominations) {
 	// Denomination		Inventory		Change
 	// ---------------------------------------
+	//     Data*************************
 	// ---------------------------------------
-	//                  Total			Total
-	printf("Denomination		Inventory		Change\n");
-	printf("------------------------------------------\n");
+	//                   [Total]	[Total]
+
+	printf("+------------+-----------+-----------+\n");
+	printf("|Denomination| Inventory | Change    |\n");
+	printf("+------------+-----------+-----------+\n");
 	int inv_total = 0;
 	int change_total = 0;
 	for (int d = 0; d < n_denominations; d++) {
-		printf("$%d.%02d\t\t%d\t\t%d\n", inventory[d][0] / 100, inventory[d][0] % 100, inventory[d][1], change[d]);
+		printf("|$%8d.%02d|%11d|%11d|\n", inventory[d][0] / 100, inventory[d][0] % 100, inventory[d][1], change[d]);
 		inv_total += inventory[d][0] * inventory[d][1];
 		change_total += inventory[d][0] * change[d];
 	}
-	printf("------------------------------------------\n");
-	printf("\t\t$%d.%02d\t\t$%d.%02d\n", inv_total / 100, inv_total % 100, change_total / 100, change_total % 100);
+	printf("+------------+-----------+-----------+\n");
+	// Totals
+	printf("             |$%7d.%02d|$%7d.%02d|\n", inv_total / 100, inv_total % 100, change_total / 100, change_total % 100);
+	printf("             +-----------+-----------+\n");
 }
 
 #define N_DENOMINATIONS 11
