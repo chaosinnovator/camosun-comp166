@@ -12,6 +12,53 @@
 #include <stdio.h>
 #include <errno.h>
 
+#define N_DENOMINATIONS 11
+
+int getMoneyInput(bool* success);
+void outputChange(const int amount, const int* change, const int inventory[][2], int n_denominations);
+int drawChangeFromInventory(int amount, int* change, int inventory[][2], int n_denominations);
+
+int main() {
+	// initialize inventory array and change array
+	// inventory array MUST be sorted largest denomination to smallest.
+	int inventory[N_DENOMINATIONS][2] = {
+		{10000, 5}, // $100 bills
+		{ 5000, 10}, // $50 bills
+		{ 2000, 10}, // $20 bills
+		{ 1000, 10}, // $10 bills
+		{  500, 15}, // $5 bills
+		{  200, 15}, // toonies
+		{  100, 15}, // loonies
+		{   25, 20}, // quarters
+		{   10, 20}, // dimes
+		{    5, 20}, // nickels
+		{    1, 20}, // pennies
+	};
+	int change[N_DENOMINATIONS];
+
+	// enter program loop
+	int unfulfiled = 0;
+	while (unfulfiled == 0) {
+		// Get user input in format "$xxx.xx" and return integer number of cents.
+		bool success;
+		int input_cents = getMoneyInput(&success);
+		if (!success) {
+			fputs("Failed to get input.", stderr);
+			return EXIT_FAILURE;
+		}
+
+		// calculate change, drawing from inventory (modifies this). returns 0 or unfulfilled amount of cents
+		unfulfiled = drawChangeFromInventory(input_cents, change, inventory, N_DENOMINATIONS);
+
+		// output table:
+		outputChange(input_cents, change, inventory, N_DENOMINATIONS);
+	}
+
+	// Not enough change
+	printf("Not enough change. Short by $%01d.%02d.", unfulfiled / 100, unfulfiled % 100);
+	return EXIT_SUCCESS;
+}
+
 /**
 * Accepts user input for an amount of money in format "$xxxx.xx" (must be positive). Forces user to retry if
 * input is invalid. Lab instructions require this function to return the value directly, so this function takes
@@ -47,7 +94,7 @@ int getMoneyInput(bool* success) {
 		//   first_unconverted_character pointer is set, but it isn't '.' so something else was encountered that couldn't be converted
 
 		if (first_unconverted_character == input_buf ||
-		    (first_unconverted_character && *first_unconverted_character != '.')) {
+			(first_unconverted_character && *first_unconverted_character != '.')) {
 			puts("Unable to properly convert input. Please try again.");
 			continue;
 		}
@@ -139,47 +186,4 @@ void outputChange(const int amount, const int* change, const int inventory[][2],
 	// Totals
 	printf("             |$%7d.%02d|$%7d.%02d|\n", inv_total / 100, inv_total % 100, change_total / 100, change_total % 100);
 	printf("             +-----------+-----------+\n");
-}
-
-#define N_DENOMINATIONS 11
-
-int main() {
-	// initialize inventory array and change array
-	// inventory array MUST be sorted largest denomination to smallest.
-	int inventory[N_DENOMINATIONS][2] = {
-		{10000, 5}, // $100 bills
-		{ 5000, 10}, // $50 bills
-		{ 2000, 10}, // $20 bills
-		{ 1000, 10}, // $10 bills
-		{  500, 15}, // $5 bills
-		{  200, 15}, // toonies
-		{  100, 15}, // loonies
-		{   25, 20}, // quarters
-		{   10, 20}, // dimes
-		{    5, 20}, // nickels
-		{    1, 20}, // pennies
-	};
-	int change[N_DENOMINATIONS];
-
-	// enter program loop
-	int unfulfiled = 0;
-	while (unfulfiled == 0) {
-		// Get user input in format "$xxx.xx" and return integer number of cents.
-		bool success;
-		int input_cents = getMoneyInput(&success);
-		if (!success) {
-			fputs("Failed to get input.", stderr);
-			return EXIT_FAILURE;
-		}
-
-		// calculate change, drawing from inventory (modifies this). returns 0 or unfulfilled amount of cents
-		unfulfiled = drawChangeFromInventory(input_cents, change, inventory, N_DENOMINATIONS);
-
-		// output table:
-		outputChange(input_cents, change, inventory, N_DENOMINATIONS);
-	}
-
-	// Not enough change
-	printf("Not enough change. Short by $%01d.%02d.", unfulfiled / 100, unfulfiled % 100);
-	return EXIT_SUCCESS;
 }
