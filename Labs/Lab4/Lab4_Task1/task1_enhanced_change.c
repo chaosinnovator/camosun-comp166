@@ -15,8 +15,8 @@
 #define N_DENOMINATIONS 11
 
 int getMoneyInput(bool* success);
-void outputChange(const int amount, const int* change, const int inventory[][2], int n_denominations);
 int drawChangeFromInventory(int amount, int* change, int inventory[][2], int n_denominations);
+void outputChange(const int* change, const int inventory[][2], int n_denominations);
 
 int main() {
 	// initialize inventory array and change array
@@ -136,11 +136,11 @@ int getMoneyInput(bool* success) {
 }
 
 /**
-* Calculated the quantity of each denomination for the given amount of cents. Reduces the available
+* Calculates the quantity of each denomination for the given amount of cents. Reduces the available
 * inventory accordingly.
 * @param amount Amount of cents to draw change for.
 * @param *change Array to put calculated change quantities into. Must be same length as inventory.
-* @param **inventory 2D Array of inventory of available denominations. Each item = {denom_value, qty}.
+* @param **inventory 2D Array of inventory of available denominations. Each row = {denom_value, qty}.
 * @param n_denominations length of change and inventory arrays.
 * @return Amount of cents that was unfulfilled if inventory was exhausted, or 0.
 */
@@ -148,33 +148,37 @@ int drawChangeFromInventory(int amount, int* change, int inventory[][2], int n_d
 	// for each entry in inventory
 	int denom_qty = 0;
 	for (int d = 0; d < n_denominations; d++) {
-		//   quantity needed to fit amount?
+		// quantity needed to fit amount?
 		denom_qty = amount / inventory[d][0];
-		//   min out of quantity, available_quantity
+		// minimum out of quantity, available_quantity
 		denom_qty = denom_qty < inventory[d][1] ? denom_qty : inventory[d][1];
-		//   change[i] = quantity
 		change[d] = denom_qty;
-		//   inventory[i][1] -= quantity
 		inventory[d][1] -= denom_qty;
 		//   amount -= denom*quantity
 		amount -= inventory[d][0] * denom_qty;
-		//   don't use if amount == 0 break because change array needs to either be initialized or finish
-		//   being reset to 0 for remaining denoms.
+		// **don't break** if amount == 0 because change array needs to either be initialized or finish being reset to 0 for remaining denoms.
 	}
 	// return amount
 	return amount;
 }
 
-void outputChange(const int amount, const int* change, const int inventory[][2], int n_denominations) {
+/**
+* Displays a table of quantity of each denomination remaining in inventory and provided in change.
+* @param *change Array containing change quantities. Must be same length as inventory.
+* @param **inventory 2D Array of inventory of remaining available denominations. Each row = {denom_value, qty}.
+* @param n_denominations length of change and inventory arrays.
+*/
+void outputChange(const int* change, const int inventory[][2], int n_denominations) {
 	// Denomination		Inventory		Change
 	// ---------------------------------------
-	//     Data*************************
+	//     *************Data**************
 	// ---------------------------------------
-	//                   [Total]	[Total]
+	//                  [Total]        [Total]
 
 	printf("+------------+-----------+-----------+\n");
 	printf("|Denomination| Inventory | Change    |\n");
 	printf("+------------+-----------+-----------+\n");
+	// output [denomination_value], [inventory_qty], [change_qty] for each row in inventory.
 	int inv_total = 0;
 	int change_total = 0;
 	for (int d = 0; d < n_denominations; d++) {
