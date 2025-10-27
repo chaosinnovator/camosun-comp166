@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{cd1ccdb5-d844-40fe-831c-3626b45f7580}</ProjectGuid>
-    <RootNamespace>Lab5Task1</RootNamespace>
+    <ProjectGuid>{0b2faeea-da8e-49ef-a563-1ef8ba2ef484}</ProjectGuid>
+    <RootNamespace>Lab5Task2</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -123,7 +123,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="task1_echo_file.c" />
+    <ClCompile Include="task2_sensor_stats.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
