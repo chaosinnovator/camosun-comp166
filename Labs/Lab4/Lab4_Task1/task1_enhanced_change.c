@@ -37,8 +37,8 @@ int main() {
 	int change[N_DENOMINATIONS];
 
 	// enter program loop
-	int unfulfiled = 0;
-	while (unfulfiled == 0) {
+	int unfulfilled = 0;
+	while (unfulfilled == 0) {
 		// Get user input in format "$xxx.xx" and return integer number of cents.
 		bool success;
 		int input_cents = getMoneyInput(&success);
@@ -47,15 +47,21 @@ int main() {
 			return EXIT_FAILURE;
 		}
 
+		// lab step 4 specifies that the loop (and thus the program) should exit if a negative number is entered.
+		if (input_cents < 0) {
+			puts("Negative amount entered, exiting.");
+			return EXIT_SUCCESS;
+		}
+
 		// calculate change, drawing from inventory (modifies this). returns 0 or unfulfilled amount of cents
-		unfulfiled = drawChangeFromInventory(input_cents, change, inventory, N_DENOMINATIONS);
+		unfulfilled = drawChangeFromInventory(input_cents, change, inventory, N_DENOMINATIONS);
 
 		// output table:
-		outputChange(input_cents, change, inventory, N_DENOMINATIONS);
+		outputChange(change, inventory, N_DENOMINATIONS);
 	}
 
 	// Not enough change
-	printf("Not enough change. Short by $%01d.%02d.", unfulfiled / 100, unfulfiled % 100);
+	printf("Not enough change. Short by $%01d.%02d.", unfulfilled / 100, unfulfilled % 100);
 	return EXIT_SUCCESS;
 }
 
@@ -99,8 +105,11 @@ int getMoneyInput(bool* success) {
 			continue;
 		}
 
+		// lab step 4 specifies that the loop (and thus the program) should exit if a negative number is entered.
+		// solution: accept negative dollar value as successful, main handles exiting if success && value < 0.
+
 		// dollars has to be less than int_max/100 since there needs to be room to store total number of cents in an int.
-		if (errno == ERANGE || dollar_input_value > (INT_MAX / 100) || dollar_input_value < 0) {
+		if (errno == ERANGE || dollar_input_value > (INT_MAX / 100) /* || dollar_input_value < 0 */ ) {
 			printf("Dollar amount must be a positive integer less than or equal to %d. Please try again.\n", INT_MAX / 100);
 			continue;
 		}
