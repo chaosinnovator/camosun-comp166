@@ -1,0 +1,1 @@
+int mean(int count, double* values, double* result);
