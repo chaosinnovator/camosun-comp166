@@ -82,13 +82,12 @@ void outputHelp() {
 * @return Returns 0 if successful, non-zero if failed
 */
 int outputFile(const char* filename) {
-	// check validity of filename
-	// check file exists and can be opened
-	// open file
+	// check validity of filename/file exists/can be opened by trying to open it
 	FILE* fptr = fopen(filename, "r");
 	if (!fptr) {
 		return -1;
 	}
+
 	// for each char in file:
 	//   putc(char) to stdout
 	int c; // needs to be int not char for EOF detection since EOF=-1
@@ -101,14 +100,9 @@ int outputFile(const char* filename) {
 	}
 	putchar('\n');
 
-	if (ferror(fptr) != 0) {
-		fclose(fptr);
-		return -1;
-	}
-
-	// close file
+	// close file and exit
 	fclose(fptr);
-	return 0;
+	return ferror(fptr) == 0 ? 0 : -1;
 }
 
 /**
@@ -117,13 +111,12 @@ int outputFile(const char* filename) {
 * @return Returns 0 if successful, non-zero if failed
 */
 int outputListFile(const char* filename) {
-	// check validity of filename
-	// check file exists and can be opened
-	// open file
+	// check validity of filename/file exists/can be opened by trying to open it
 	FILE* fptr = fopen(filename, "r");
 	if (!fptr) {
 		return -1;
 	}
+
 	// for each line in file:
 	//   outputFile(line);
 	char line_buffer[256]; // limits lines to a maximum of 256 characters. malloc/realloc/free not introduced yet.
@@ -133,6 +126,7 @@ int outputListFile(const char* filename) {
 			fprintf(stderr, "Error while processing file \"%s\" (listed in \"%s\")\n", line_buffer, filename);
 		}
 	}
+
 	// close file
 	fclose(fptr);
 	return 0;
