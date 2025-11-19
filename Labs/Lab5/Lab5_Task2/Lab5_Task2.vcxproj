@@ -123,7 +123,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="log_summary_processing.c" />
     <ClCompile Include="task2_sensor_stats.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="log_summary.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
