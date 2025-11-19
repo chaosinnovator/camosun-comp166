@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36518.9
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.11205.157 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "InClassTest", "InClassTest\InClassTest.vcxproj", "{27B527DC-D953-4831-9865-4BA9403B678F}"
 EndProject
@@ -10,6 +10,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Hangman", "Hangman\Hangman.vcxproj", "{ED5C11E3-6D0C-46BC-AAA9-AD839815712F}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Quizzes", "Quizzes\Quizzes.vcxproj", "{27087F1D-5630-4693-B8B7-BD98DCAB091A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WordsFromInputString", "WordsFromInputString\WordsFromInputString.vcxproj", "{B5644AB5-A0ED-470E-99FD-806DEF1933A1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,6 +53,14 @@ Global
 		{27087F1D-5630-4693-B8B7-BD98DCAB091A}.Release|x64.Build.0 = Release|x64
 		{27087F1D-5630-4693-B8B7-BD98DCAB091A}.Release|x86.ActiveCfg = Release|Win32
 		{27087F1D-5630-4693-B8B7-BD98DCAB091A}.Release|x86.Build.0 = Release|Win32
+		{B5644AB5-A0ED-470E-99FD-806DEF1933A1}.Debug|x64.ActiveCfg = Debug|x64
+		{B5644AB5-A0ED-470E-99FD-806DEF1933A1}.Debug|x64.Build.0 = Debug|x64
+		{B5644AB5-A0ED-470E-99FD-806DEF1933A1}.Debug|x86.ActiveCfg = Debug|Win32
+		{B5644AB5-A0ED-470E-99FD-806DEF1933A1}.Debug|x86.Build.0 = Debug|Win32
+		{B5644AB5-A0ED-470E-99FD-806DEF1933A1}.Release|x64.ActiveCfg = Release|x64
+		{B5644AB5-A0ED-470E-99FD-806DEF1933A1}.Release|x64.Build.0 = Release|x64
+		{B5644AB5-A0ED-470E-99FD-806DEF1933A1}.Release|x86.ActiveCfg = Release|Win32
+		{B5644AB5-A0ED-470E-99FD-806DEF1933A1}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
