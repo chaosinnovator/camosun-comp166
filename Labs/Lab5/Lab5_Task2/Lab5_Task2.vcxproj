@@ -123,7 +123,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="log_summary_processing.c" />
+    <ClCompile Include="log_summary_functions.c" />
     <ClCompile Include="task2_sensor_stats.c" />
   </ItemGroup>
   <ItemGroup>

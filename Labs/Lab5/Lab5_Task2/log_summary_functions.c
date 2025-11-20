@@ -11,6 +11,7 @@
 #include <float.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 #include "log_summary.h"
 
 void calculateLogMeans(LogSummary* log_summary) {
@@ -71,12 +72,23 @@ int processLogDataFromFile(const char* file_name, LogSummary* log_summary, int m
 		for (int sensor_id = 0; sensor_id < log_summary->n_sensors; sensor_id++) {
 			if (fscanf_s(fptr, "%*[ \t]%lf", &new_sensor_value) != 1) {
 				// reached end of line or a wrong character
-				// if not first line:
-				if (line != 0) {
-					fprintf(stderr, "Error while processing file \"%s\":\nLine %d contains only %d data entries (%d required), or contains an entry that couldn't be parsed.\n", file_name, line + 1, sensor_id + 1, log_summary->n_sensors);
+				// check next char without consuming it
+				int c = fgetc(fptr);
+				fseek(fptr, -1, SEEK_CUR);
+
+				// if wrong character incountered:
+				if (c != '\n' && c != EOF) {
+					fprintf(stderr, "Error while processing file \"%s\":\nLine %d contains an entry that couldn't be parsed.\n", file_name, line + 1);
 					return -1;
 				}
-				// if first line:
+
+				// if not first line:
+				if (line != 0) {
+					fprintf(stderr, "Error while processing file \"%s\":\nLine %d contains only %d data entries (%d required).\n", file_name, line + 1, sensor_id + 1, log_summary->n_sensors);
+					return -1;
+				}
+
+				// if first line, then expect one fewer sensors/columns than this on subsequent lines:
 				log_summary->n_sensors--;
 				break;
 			}
