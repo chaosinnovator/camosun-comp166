@@ -20,6 +20,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include "file_utilities.h"
 
 void outputHelp();
 int outputFile(const char* file_name);
@@ -44,7 +45,7 @@ int main(int argc, char* argv[]) {
 	for (int i = 1; i < argc; i++) {
 		//   if arg is -a:
 		if (strcmp(argv[i], "-a") == 0) {
-			//     if next arg not present, stop and output error
+			// skip to next arg; if next arg not present, stop and output error
 			i++;
 			if (i >= argc) {
 				// This check should probably be done before starting to output each file contents.
@@ -53,14 +54,16 @@ int main(int argc, char* argv[]) {
 			}
 			//     call outputListFile()
 			if (outputListFile(argv[i]) != 0) {
-				fprintf(stderr, "Error while processing list file \"%s\"\n", argv[i]);
+				fprintf(stderr, "Error while processing list file \"%s\":\n", argv[i]);
+				printErrno(errno, stderr);
 			}
 			continue;
 		}
 		//   else:
 		//     outputFile()
 		if (outputFile(argv[i]) != 0) {
-			fprintf(stderr, "Error while processing file \"%s\"\n", argv[i]);
+			fprintf(stderr, "Error while processing file \"%s\":\n", argv[i]);
+			printErrno(errno, stderr);
 		}
 	}
 
@@ -102,7 +105,7 @@ int outputFile(const char* filename) {
 
 	// close file and exit
 	fclose(fptr);
-	return ferror(fptr) == 0 ? 0 : -1;
+	return 0;
 }
 
 /**
@@ -123,7 +126,8 @@ int outputListFile(const char* filename) {
 	while (fgets(line_buffer, 256, fptr)) {
 		line_buffer[strcspn(line_buffer, "\n")] = 0; // remove trailing newline
 		if (outputFile(line_buffer) != 0) {
-			fprintf(stderr, "Error while processing file \"%s\" (listed in \"%s\")\n", line_buffer, filename);
+			fprintf(stderr, "Error while processing file \"%s\" (listed in \"%s\"):\n", line_buffer, filename);
+			printErrno(errno, stderr);
 		}
 	}
 
