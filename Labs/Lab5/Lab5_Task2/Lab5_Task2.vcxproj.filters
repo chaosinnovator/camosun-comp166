@@ -21,9 +21,15 @@
     <ClCompile Include="log_summary_functions.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="file_utilities.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="log_summary.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="file_utilities.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

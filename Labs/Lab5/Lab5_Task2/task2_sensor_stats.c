@@ -28,8 +28,8 @@
 #include <float.h>
 #include <string.h>
 #include <errno.h>
-
 #include "log_summary.h"
+#include "file_utilities.h"
 
 // lab instructions specify max 8 sensors, so we'll use that.
 #define MAX_SENSORS 8
@@ -47,16 +47,18 @@ int main(int argc, char* argv[]) {
 		}
 	}
 	// if /? present or if not correct number of args, output help
-	if (show_help || argc < 2 || argc > 3) {
+	if (show_help || argc > 3) {
 		outputHelp();
 		return EXIT_SUCCESS;
 	}
 
+	bool input_from_file = argc >= 2;
+
 	// check validity of output_file if provided
 	bool output_to_file = argc == 3;
 	if (output_to_file && !checkOutputPathValid(argv[2])) {
-		fprintf(stderr, "Unable to write to provided output_path \"%s\": ", argv[2]);
-		perror(errno);
+		fprintf(stderr, "Unable to write to provided output_path: ");
+		printErrno(errno, stderr);
 		return EXIT_FAILURE;
 	}
 
@@ -65,10 +67,23 @@ int main(int argc, char* argv[]) {
 	LogSummary summary;
 	summary.sensor_stats = sensor_stats;
 
-	// open file and process data
+	// open file (or use stdin) and process data
 	//   if failure, exit (processLogDataFromFile already prints error message to stderr
-	if (processLogDataFromFile(argv[1], &summary, MAX_SENSORS) != 0) {
+	FILE* input_stream = stdin;
+	if (input_from_file) {
+		fopen_s(&input_stream, argv[1], "r");
+		if (!input_stream) {
+			fprintf(stderr, "An error occurred while opening input file: ");
+			printErrno(errno, stderr);
+			return EXIT_FAILURE;
+		}
+	}
+	if (processLogData(input_stream, &summary, MAX_SENSORS) != 0) {
+		// error message already printed in processLogData
 		return EXIT_FAILURE;
+	}
+	if (input_from_file) {
+		fclose(input_stream);
 	}
 
 	calculateLogMeans(&summary);
@@ -79,25 +94,22 @@ int main(int argc, char* argv[]) {
 	//   output report to file
 	//   close file
 	// else output report to stdout
+	FILE* output_stream = stdout;
 	if (output_to_file) {
-		FILE* fptr = fopen(argv[2], "w");
-		if (!fptr) {
-			fprintf(stderr, "An error occurred opening output file \"%s\" for writing.", argv[2]);
+		fopen_s(&output_stream, argv[2], "w");
+		if (!output_stream) {
+			fprintf(stderr, "An error occurred opening output file for writing: ");
+			printErrno(errno, stderr);
 			return EXIT_FAILURE;
 		}
-		if (outputStats(fptr, summary) != 0) {
-			fprintf(stderr, "An error occurred while writing to output file \"%s\": ", argv[2]);
-			perror(ferror(fptr));
-			fclose(fptr);
-			return EXIT_FAILURE;
-		}
-		fclose(fptr);
 	}
-	else {
-		if (outputStats(stdout, summary) != 0) {
-			puts("An error occurred while writing output to stdout.");
-			return EXIT_FAILURE;
-		}
+	if (outputStats(output_stream, summary) != 0) {
+		fprintf(stderr, "An error occurred while writing output: ");
+		printErrno(errno, stderr);
+		return EXIT_FAILURE;
+	}
+	if (output_to_file) {
+		fclose(output_stream);
 	}
 
 	return EXIT_SUCCESS;
@@ -111,21 +123,7 @@ void outputHelp() {
 	puts("                   [timestamp] [sensor_1] [sensor_2] ... [sensor_n]\\n");
 	puts("                 where sensor values are floating-point values separated by whitespace and each");
 	puts("                 line is a maximum of 500 characters long.");
-	puts("                 If input file not provided, read sensor log data from stdin.");
+	puts("                 If input file not provided, read sensor log data from stdin until blank line.");
 	puts("  [output_file]  Optional file to write statistics report to.");
 	puts("  /?             Display this help page.\n");
-}
-
-/**
-* @brief Checks that output file is a valid path and that there are write permissions.
-* @param file_name String containing file path
-* @return Returns true if vaild path and write permission, false otherwise.
-*/
-bool checkOutputPathValid(const char* file_name) {
-	FILE* fptr = fopen(file_name, "r+");
-	if (!fptr) {
-		return false;
-	}
-	fclose(fptr);
-	return true;
 }

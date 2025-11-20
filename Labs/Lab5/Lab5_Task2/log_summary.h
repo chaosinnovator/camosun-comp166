@@ -40,12 +40,12 @@ void calculateLogStdDevs(LogSummary* log_summary);
 
 /*
 * @brief Processes log data from the specified file and populates the provided LogSummary structure.
-* @param file_name String containing path to log file.
+* @param input_stream File/input stream to read log data from.
 * @param log_summary Pointer to LogSummary structure to populate with processed data. 
 * @param max_sensors Maximum number of sensors expected in the log data.
 * @return Returns 0 if successful, non-zero if an error occurred.
 */
-int processLogDataFromFile(const char* file_name, LogSummary* log_summary, int max_sensors);
+int processLogData(FILE* input_stream, LogSummary* log_summary, int max_sensors);
 
 /*
 * @brief Outputs the statistics contained in the provided LogSummary structure to the specified stream.
@@ -53,4 +53,4 @@ int processLogDataFromFile(const char* file_name, LogSummary* log_summary, int m
 * @param log_summary LogSummary structure containing statistics to output.
 * @return Returns 0 if successful, non-zero if an error occurred.
 */
-int outputStats(FILE* stream, const LogSummary log_summary);
+int outputStats(FILE* output_stream, const LogSummary log_summary);

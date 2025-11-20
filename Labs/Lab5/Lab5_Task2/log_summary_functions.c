@@ -1,5 +1,5 @@
 /*
-* log_summary_processing.c
+* log_summary_functions.c
 * 2025F COMP-166 Lab 5 - Thomas Boland - C0556991
 * 
 * Contains function implementations for processing, populating, and
@@ -9,10 +9,12 @@
 
 #include <errno.h>
 #include <float.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include "log_summary.h"
+#include "file_utilities.h"
 
 void calculateLogMeans(LogSummary* log_summary) {
 	for (int i = 0; i < log_summary->n_sensors; i++) {
@@ -23,25 +25,19 @@ void calculateLogMeans(LogSummary* log_summary) {
 void calculateLogStdDevs(LogSummary* log_summary) {
 	for (int i = 0; i < log_summary->n_sensors; i++) {
 		// stddev = sqrt( (sumsq - sum^2)/(n*(n-1)) ) <-- calculate this second since we need mean and sumsq
-		log_summary->sensor_stats[i].stddev = sqrt((log_summary->sensor_stats[i].count * log_summary->sensor_stats[i].sum_squares - log_summary->sensor_stats[i].sum * log_summary->sensor_stats[i].sum) / (log_summary->sensor_stats[i].count * (log_summary->sensor_stats[i].count - 1)));
+		log_summary->sensor_stats[i].stddev = sqrt(((double)log_summary->sensor_stats[i].count * log_summary->sensor_stats[i].sum_squares - (double)log_summary->sensor_stats[i].sum * log_summary->sensor_stats[i].sum) / (double)(log_summary->sensor_stats[i].count * (log_summary->sensor_stats[i].count - 1)));
 	}
 }
 
-int processLogDataFromFile(const char* file_name, LogSummary* log_summary, int max_sensors) {
-	FILE* fptr = fopen(file_name, "r");
-	if (!fptr) {
-		fprintf(stderr, "An error occurred while opening input file \"%s\": ", file_name);
-		perror(errno);
-		return -1;
-	}
-
+int processLogData(FILE* input_stream, LogSummary* log_summary, int max_sensors) {
 	// line length doesn't matter, we can process the file in smaller parts than line-by-line.
 	//   until EOF:
 	//     read from file for timestamp.
 	//     read until whitespace (not newline)
-	//      -> parse data, check extrema, increment sensor count
+	//      -> parse data, check extrema, increment sensor count 
 	//      -> check n_sensor, check if not enough/too many sensors @ end of line.
 	//     read until \n and repeat
+	// Also - for first line only, determine number of sensors from number of successfully parsed entries.
 	int sensor_id = 0;
 	log_summary->n_sensors = 1;
 	log_summary->max.value = -DBL_MAX;
@@ -50,13 +46,20 @@ int processLogDataFromFile(const char* file_name, LogSummary* log_summary, int m
 	char line_timestamp[20];
 	double new_sensor_value = 0;
 	while (true) {
-		if (feof(fptr)) {
+		if (feof(input_stream)) {
+			break;
+		}
+
+		// end if encounter a blank line (only leading whitespace then \n or EOF)
+		fscanf_s(input_stream, "%*[ \t]");
+		int c = filePeakNextChar(input_stream);
+		if (c == '\n' || c == EOF) {
 			break;
 		}
 
 		// read timestamp (skip leading ' ' or '\t')
-		if (fscanf_s(fptr, "%19[^ \t\n]", line_timestamp, 20) != 1) {
-			fprintf(stderr, "Error while processing file \"%s\": Unable to read timestamp on line %d.\n", file_name, line + 1);
+		if (fscanf_s(input_stream, "%19[^ \t\n]", line_timestamp, 20) != 1) {
+			fprintf(stderr, "Error while processing file: Unable to read timestamp on line %d.\n", line + 1);
 			return -1;
 		}
 
@@ -64,27 +67,27 @@ int processLogDataFromFile(const char* file_name, LogSummary* log_summary, int m
 
 		// check timestamp length
 		if (strlen(line_timestamp) != 19) {
-			fprintf(stderr, "Error while processing file \"%s\": Timestamp not correct length on line %d.\n", file_name, line + 1);
+			fprintf(stderr, "Error while processing file: Timestamp not correct length on line %d.\n", line + 1);
 			return -1;
 		}
 
 		// read sensor values
-		for (int sensor_id = 0; sensor_id < log_summary->n_sensors; sensor_id++) {
-			if (fscanf_s(fptr, "%*[ \t]%lf", &new_sensor_value) != 1) {
+		for (int sensor_id = 0; sensor_id < log_summary->n_sensors && sensor_id < max_sensors; sensor_id++) {
+			// try to read new sensor value (skip leading ' ' or '\t'); if can't parse, therefore end of line or wrong character encountered
+			if (fscanf_s(input_stream, "%*[ \t]%lf", &new_sensor_value) != 1) {
 				// reached end of line or a wrong character
 				// check next char without consuming it
-				int c = fgetc(fptr);
-				fseek(fptr, -1, SEEK_CUR);
+				c = filePeakNextChar(input_stream);
 
 				// if wrong character incountered:
 				if (c != '\n' && c != EOF) {
-					fprintf(stderr, "Error while processing file \"%s\":\nLine %d contains an entry that couldn't be parsed.\n", file_name, line + 1);
+					fprintf(stderr, "Error while processing file: Line %d contains an entry that couldn't be parsed.\n", line + 1);
 					return -1;
 				}
 
 				// if not first line:
 				if (line != 0) {
-					fprintf(stderr, "Error while processing file \"%s\":\nLine %d contains only %d data entries (%d required).\n", file_name, line + 1, sensor_id + 1, log_summary->n_sensors);
+					fprintf(stderr, "Error while processing file: Line %d contains only %d data entries (%d required).\n", line + 1, sensor_id + 1, log_summary->n_sensors);
 					return -1;
 				}
 
@@ -93,8 +96,8 @@ int processLogDataFromFile(const char* file_name, LogSummary* log_summary, int m
 				break;
 			}
 
-			// not yet end of line. if first line and <MAX_SENSORS:
-			if (line == 0 && log_summary->n_sensors <= max_sensors) {
+			// not yet end of line. if first line and there are allowed to be more sensors:
+			if (line == 0 && log_summary->n_sensors < max_sensors) {
 				log_summary->n_sensors++;
 			}
 
@@ -118,15 +121,14 @@ int processLogDataFromFile(const char* file_name, LogSummary* log_summary, int m
 
 		// read characters until \n or EOF.
 		// if we encounter a character that is not whitespace first, then there are too many sensors.
-		int c; // needs to be int not char for EOF detection since EOF=-1
 		while (true) {
-			c = fgetc(fptr);
+			c = fgetc(input_stream);
 			if (c == EOF || c == '\n') {
 				break;
 			}
 
 			if (c != '\t' && c != ' ') {
-				fprintf(stderr, "Error while processing file \"%s\": Line %d contains more than %d data entries.\n", file_name, line + 1, log_summary->n_sensors);
+				fprintf(stderr, "Error while processing file: Line %d contains more than %d data entries.\n", line + 1, log_summary->n_sensors);
 				return -1;
 			}
 		}
@@ -138,22 +140,21 @@ int processLogDataFromFile(const char* file_name, LogSummary* log_summary, int m
 
 	// handle case of no lines
 	if (line == 0) {
-		fprintf(stderr, "Error while processing file \"%s\": No lines processed.\n", file_name);
+		fprintf(stderr, "Error while processing file: No lines to process.\n");
 		return -1;
 	}
 
-	fclose(fptr);
 	return 0;
 }
 
-int outputStats(FILE* stream, const LogSummary log_summary) {
+int outputStats(FILE* output_stream, const LogSummary log_summary) {
 	// output min and max
-	fprintf(stream, "Maximum recorded at %s (%f)\n", log_summary.max.timestamp, log_summary.max.value);
-	fprintf(stream, "Minimum recorded at %s (%f)\n", log_summary.min.timestamp, log_summary.min.value);
+	fprintf(output_stream, "Maximum recorded at %s (%f)\n", log_summary.max.timestamp, log_summary.max.value);
+	fprintf(output_stream, "Minimum recorded at %s (%f)\n", log_summary.min.timestamp, log_summary.min.value);
 
-	// output mean and stddev for each sensor
+	// output mean and stddev for each sensor. Example in lab instructions shows 2 decimal places.
 	for (int sensor_id = 0; sensor_id < log_summary.n_sensors; sensor_id++) {
-		fprintf(stream, "\nSensor %d:\n- mean: %f\n- deviation: %f\n", sensor_id + 1, log_summary.sensor_stats[sensor_id].mean, log_summary.sensor_stats[sensor_id].stddev);
+		fprintf(output_stream, "\nSensor %d:\n- mean: %.2f\n- deviation: %.2f\n", sensor_id + 1, log_summary.sensor_stats[sensor_id].mean, log_summary.sensor_stats[sensor_id].stddev);
 	}
 
 	return 0;
