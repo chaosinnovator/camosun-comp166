@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
 	}
 	new_word[0] = '\0';
 	int c;
-	// until input ends (also interpret blank line as end of input):
+	// until input ends:
 	while (!feof(input_stream)) {
 		// read word into dynamic char* (skip characters that are not A-Z or a-z, then read until next non A-Z or a-z)
 		c = fgetc(input_stream);
@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
 			// end of input or line
 			if (new_word_length == 0) {
 				// no word read, end of input
-				break;
+				continue;
 			}
 		}
 
@@ -93,6 +93,8 @@ int main(int argc, char* argv[]) {
 		// all other cases mean the word ended.
 		// add word to longest words list and clear new_word.
 		if (new_word_length < words.length) {
+			new_word[0] = '\0';
+			new_word_length = 0;
 			continue;
 		}
 
@@ -125,9 +127,9 @@ int main(int argc, char* argv[]) {
 }
 
 void outputHelp() {
-	printf("Usage: task1_longest_words [input_file]\n");
+	printf("Usage: task1_longest_words [input_file]\n\n");
 	printf("This program finds and displays the longest word(s) either from a\n");
-	printf("file specified as a command line argument or from stdin.\n");
+	printf("file specified as [input_file] or from stdin.\n");
 	printf("A word is defined as a sequence of alphabetic characters (A-Z, a-z).\n");
 	printf("If multiple words are tied for longest, all are displayed in\n");
 	printf("alphabetical order (case insensitive), with duplicates removed.\n");
