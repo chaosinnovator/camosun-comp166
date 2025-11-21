@@ -15,18 +15,15 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.c">
+    <ClCompile Include="sensor_analyzer.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="stats.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="exercises.c">
+    <ClCompile Include="sensor_sample.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="stats.h">
+    <ClInclude Include="sensor_sample.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
