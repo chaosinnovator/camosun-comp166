@@ -9,7 +9,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-void printErrno(int error_number, FILE* output_stream);
 int filePeakNextChar(FILE* fptr);
 
 /**

@@ -10,12 +10,6 @@
 #include <string.h>
 #include "file_utilities.h"
 
-void printErrno(int error_number, FILE* output_stream) {
-	char err_buf[256];
-	strerror_s(err_buf, sizeof(err_buf), error_number);
-	fprintf(output_stream, "%s\n", err_buf);
-}
-
 int filePeakNextChar(FILE* fptr) {
 	int c = fgetc(fptr);
 	ungetc(c, fptr);

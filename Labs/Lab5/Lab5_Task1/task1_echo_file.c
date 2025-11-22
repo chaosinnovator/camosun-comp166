@@ -54,16 +54,16 @@ int main(int argc, char* argv[]) {
 			}
 			//     call outputListFile()
 			if (outputListFile(argv[i]) != 0) {
-				fprintf(stderr, "Error while processing list file \"%s\":\n", argv[i]);
-				printErrno(errno, stderr);
+				fprintf(stderr, "Error while processing list file \"%s\": ", argv[i]);
+				perror("");
 			}
 			continue;
 		}
 		//   else:
 		//     outputFile()
 		if (outputFile(argv[i]) != 0) {
-			fprintf(stderr, "Error while processing file \"%s\":\n", argv[i]);
-			printErrno(errno, stderr);
+			fprintf(stderr, "Error while processing file \"%s\": ", argv[i]);
+			perror("");
 		}
 	}
 
@@ -126,8 +126,8 @@ int outputListFile(const char* filename) {
 	while (fgets(line_buffer, 256, fptr)) {
 		line_buffer[strcspn(line_buffer, "\n")] = 0; // remove trailing newline
 		if (outputFile(line_buffer) != 0) {
-			fprintf(stderr, "Error while processing file \"%s\" (listed in \"%s\"):\n", line_buffer, filename);
-			printErrno(errno, stderr);
+			fprintf(stderr, "Error while processing file \"%s\" (listed in \"%s\"): ", line_buffer, filename);
+			perror("");
 		}
 	}
 

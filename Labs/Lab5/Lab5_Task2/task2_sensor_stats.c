@@ -57,8 +57,7 @@ int main(int argc, char* argv[]) {
 	// check validity of output_file if provided
 	bool output_to_file = argc == 3;
 	if (output_to_file && !checkOutputPathValid(argv[2])) {
-		fprintf(stderr, "Unable to write to provided output_path: ");
-		printErrno(errno, stderr);
+		perror("Unable to write to provided output_path");
 		return EXIT_FAILURE;
 	}
 
@@ -73,8 +72,7 @@ int main(int argc, char* argv[]) {
 	if (input_from_file) {
 		fopen_s(&input_stream, argv[1], "r");
 		if (!input_stream) {
-			fprintf(stderr, "An error occurred while opening input file: ");
-			printErrno(errno, stderr);
+			perror("An error occurred while opening input file");
 			return EXIT_FAILURE;
 		}
 	}
@@ -98,14 +96,12 @@ int main(int argc, char* argv[]) {
 	if (output_to_file) {
 		fopen_s(&output_stream, argv[2], "w");
 		if (!output_stream) {
-			fprintf(stderr, "An error occurred opening output file for writing: ");
-			printErrno(errno, stderr);
+			perror("An error occurred opening output file for writing");
 			return EXIT_FAILURE;
 		}
 	}
 	if (outputStats(output_stream, summary) != 0) {
-		fprintf(stderr, "An error occurred while writing output: ");
-		printErrno(errno, stderr);
+		perror("An error occurred while writing output");
 		return EXIT_FAILURE;
 	}
 	if (output_to_file) {
