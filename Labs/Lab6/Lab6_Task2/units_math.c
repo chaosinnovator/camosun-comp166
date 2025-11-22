@@ -17,13 +17,11 @@ int _siValueAppendUnit(SiValue* value, const char* unit, int power) {
 	}
 	
 	//copy unit string
-	newNode->unit = (char*)malloc(strlen(unit) + 1);
+	newNode->unit = strdup(unit);
 	if (newNode->unit == NULL) {
 		free(newNode);
 		return -1;
 	}
-
-	strcpy_s(newNode->unit, strlen(unit) + 1, unit);
 
 	newNode->power = power;
 	newNode->next = NULL;
@@ -51,7 +49,33 @@ void _siValueClearUnits(SiValue* value) {
 	value->units.tail = NULL;
 }
 
-bool siValueSameUnit(SiValue a, SiValue b) {
+void _siValueRemoveZeroPowerUnits(SiValue* value) {
+	SiUnitLinkedListNode* previous = NULL;
+	for (SiUnitLinkedListNode* current = value->units.head; current != NULL; current = current->next) {
+		if (current->power != 0) {
+			previous = current;
+			continue;
+		}
+
+		// remove current
+		SiUnitLinkedListNode* to_free = current;
+		if (previous == NULL) {
+			// removing head
+			value->units.head = current->next;
+		}
+		else {
+			// removing middle node
+			previous->next = current->next;
+		}
+		// check tail
+		if (value->units.tail == current) {
+			value->units.tail = current->next;
+		}
+		free(to_free);
+	}
+}
+
+bool siValueSameUnit(const SiValue a, const SiValue b) {
 	// Assumes no duplicate units, and units are same case.
 	// NOTE does not handle case of same units specified in different orders
 	//   possible solutions: -sort both lists of units first
@@ -87,18 +111,17 @@ bool siValueSameUnit(SiValue a, SiValue b) {
 	return true;
 }
 
-int siValueAdd(SiValue a, SiValue b, SiValue* result) {
+int siValueAdd(const SiValue a, const SiValue b, SiValue* result) {
 	if (!siValueSameUnit(a, b)) {
 		return -1;
 	}
 
 	result->value = a.value + b.value;
-	
-	// copy units from a (or b, since they are the same) into result
 	result->units.head = NULL;
 	result->units.tail = NULL;
-	SiUnitLinkedListNode* unitA = a.units.head;
-	while (unitA != NULL) {
+	
+	// copy units from a (or b, since they are the same) into result
+	for (SiUnitLinkedListNode* unitA = a.units.head; unitA != NULL; unitA = unitA->next) {
 		if (_siValueAppendUnit(result, unitA->unit, unitA->power) != 0) {
 			// TODO: free previously allocated units in result and retunr failure
 			_siValueClearUnits(result);
@@ -110,18 +133,17 @@ int siValueAdd(SiValue a, SiValue b, SiValue* result) {
 }
 
 // TODO this is the same thing as a + (-b). could refactor to avoid code duplication.
-int siValueSubtract(SiValue a, SiValue b, SiValue* result) {
+int siValueSubtract(const SiValue a, const SiValue b, SiValue* result) {
 	if (!siValueSameUnit(a, b)) {
 		return -1;
 	}
 
 	result->value = a.value - b.value;
-
-	// copy units from a (or b, since they are the same) into result
 	result->units.head = NULL;
 	result->units.tail = NULL;
-	SiUnitLinkedListNode* unitA = a.units.head;
-	while (unitA != NULL) {
+
+	// copy units from a (or b, since they are the same) into result
+	for (SiUnitLinkedListNode* unitA = a.units.head; unitA != NULL; unitA = unitA->next) {
 		if (_siValueAppendUnit(result, unitA->unit, unitA->power) != 0) {
 			// TODO: free previously allocated units in result and retunr failure
 			_siValueClearUnits(result);
@@ -132,10 +154,98 @@ int siValueSubtract(SiValue a, SiValue b, SiValue* result) {
 	return 0;
 }
 
-SiValue siValueMultiply(SiValue a, SiValue b);
-SiValue siValueDivide(SiValue a, SiValue b);
+int siValueMultiply(const SiValue a, const SiValue b, SiValue* result) {
+	result->value = a.value * b.value;
+	result->units.head = NULL;
+	result->units.tail = NULL;
+
+	// combine units from a and b into result
+	// for each unit in a: add to result
+	for (SiUnitLinkedListNode* unitA = a.units.head; unitA != NULL; unitA = unitA->next) {
+		if (_siValueAppendUnit(result, unitA->unit, unitA->power) != 0) {
+			_siValueClearUnits(result);
+			return -1;
+		}
+	}
+	// for each unit in b: if exists in result, add powers, else add new unit to result
+	for (SiUnitLinkedListNode* unitB = b.units.head; unitB != NULL; unitB = unitB->next) {
+		bool unit_found = false;
+		for (SiUnitLinkedListNode* unitR = result->units.head; unitR != NULL; unitR = unitR->next) {
+			if (strcmp(unitB->unit, unitR->unit) != 0) {
+				continue;
+			}
+
+			// unit exists in result, add powers
+			unitR->power += unitB->power;
+			// TODO if power is now zero, remove unit from list
+			unit_found = true;
+			break;
+		}
+
+		if (unit_found) {
+			continue;
+		}
+
+		// unit from b not found in result, add new unit
+		if (_siValueAppendUnit(result, unitB->unit, unitB->power) != 0) {
+			_siValueClearUnits(result);
+			return -1;
+		}
+	}
+
+	_siValueRemoveZeroPowerUnits(result);
+	return 0;
+}
+
+int siValueDivide(const SiValue a, const SiValue b, SiValue* result) {
+	if (b.value == 0.0) { // prevent division by zero
+		return -1;
+	}
+
+	result->value = a.value / b.value;
+	result->units.head = NULL;
+	result->units.tail = NULL;
+
+	// combine units from a and b into result
+	// for each unit in a: add to result
+	for (SiUnitLinkedListNode* unitA = a.units.head; unitA != NULL; unitA = unitA->next) {
+		if (_siValueAppendUnit(result, unitA->unit, unitA->power) != 0) {
+			_siValueClearUnits(result);
+			return -1;
+		}
+	}
+	// for each unit in b: if exists in result, subtract powers, else add new unit with negative power to result
+	for (SiUnitLinkedListNode* unitB = b.units.head; unitB != NULL; unitB = unitB->next) {
+		bool unit_found = false;
+		for (SiUnitLinkedListNode* unitR = result->units.head; unitR != NULL; unitR = unitR->next) {
+			if (strcmp(unitB->unit, unitR->unit) != 0) {
+				continue;
+			}
+
+			// unit exists in result, add powers
+			unitR->power -= unitB->power;
+			unit_found = true;
+			break;
+		}
+
+		if (unit_found) {
+			continue;
+		}
+
+		// unit from b not found in result, add new unit
+		if (_siValueAppendUnit(result, unitB->unit, unitB->power) != 0) {
+			_siValueClearUnits(result);
+			return -1;
+		}
+	}
+
+	_siValueRemoveZeroPowerUnits(result);
+	return 0;
+}
 
 int siValueParseFromStream(FILE* stream, SiValue* value) {
-	// NOTE: need to handle combining multiple instances of same unit. for example, m s m -> m^2 s
+	// NOTE: need to handle combining multiple instances of same unit. for example, m^2 s m -> m^3 s
+	// NOTE: remove units with power 0 after parsing.
+	_siValueRemoveZeroPowerUnits(value);
 }
-int siValueOutputToStream(FILE* stream, SiValue* value);
+int siValueOutputToStream(FILE* stream, const SiValue* value);

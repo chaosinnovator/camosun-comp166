@@ -24,7 +24,7 @@ int main() {
 		}
 		// read operator
 		// skip whitespace, read one [+-*/]
-		if (fscanf_s(stdin, " %[-+\*/]", &operator) != 1) {
+		if (fscanf_s(stdin, " %[-+\*/]", &operator, 1) != 1) {
 			fprintf(stderr, "Error: Invalid or missing operator.\n");
 			int c;
 			while ((c = getchar()) != '\n' && c != EOF) {}
@@ -59,10 +59,14 @@ int main() {
 		}
 		break;
 	case '*':
-		result = siValueMultiply(valA, valB);
+		if (siValueMultiply(valA, valB, &result) != 0) {
+			fprinf(stderr, "Error: Multiplication failed.\n");
+		}
 		break;
 	case '/':
-		result = siValueDivide(valA, valB);
+		if (siValueDivide(valA, valB, &result) != 0) {
+			fprintf(stderr, "Error: Division by zero.\n");
+		}
 		break;
 	default:
 		fprintf(stderr, "Error: Unknown operator '%c'.\n", operator);

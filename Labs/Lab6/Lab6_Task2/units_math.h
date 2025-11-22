@@ -25,12 +25,12 @@ typedef struct {
 	SiUnitLinkedList units;
 } SiValue;
 
-bool siValueSameUnit(SiValue a, SiValue b);
+bool siValueSameUnit(const SiValue a, const SiValue b);
 
-int siValueAdd(SiValue a, SiValue b, SiValue* result);
-int siValueSubtract(SiValue a, SiValue b, SiValue* result);
-SiValue siValueMultiply(SiValue a, SiValue b);
-SiValue siValueDivide(SiValue a, SiValue b);
+int siValueAdd(const SiValue a, const SiValue b, SiValue* result);
+int siValueSubtract(const SiValue a, const SiValue b, SiValue* result);
+int siValueMultiply(const SiValue a, const SiValue b, SiValue* result);
+int siValueDivide(const SiValue a, const SiValue b, SiValue* result);
 
 int siValueParseFromStream(FILE* stream, SiValue* value);
-int siValueOutputToStream(FILE* stream, SiValue* value);
+int siValueOutputToStream(FILE* stream, const SiValue* value);
