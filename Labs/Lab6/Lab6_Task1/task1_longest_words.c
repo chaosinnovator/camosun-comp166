@@ -127,12 +127,15 @@ int main(int argc, char* argv[]) {
 }
 
 void outputHelp() {
-	printf("Usage: task1_longest_words [input_file]\n\n");
-	printf("This program finds and displays the longest word(s) either from a\n");
-	printf("file specified as [input_file] or from stdin.\n");
-	printf("A word is defined as a sequence of alphabetic characters (A-Z, a-z).\n");
-	printf("If multiple words are tied for longest, all are displayed in\n");
-	printf("alphabetical order (case insensitive), with duplicates removed.\n");
+	puts("Find and display the longest word(s) from a given input file or from stdin.");
+	puts("A word consists of a sequence of alphabetic characters [A-Za-z] separated by");
+	puts("any other character. If multiple words are tied for longest, unique words will");
+	puts("be displayed in alphabetical order.");
+	puts("");
+	puts("Usage: lab6_task1 [input_file]");
+	puts("  [input_file]   Path to file containing words. If input file not provided,");
+	puts("                   read words from stdin instead.");
+	puts("  /?             Display this help page.\n");
 }
 
 bool isAlphaChar(int c) {
