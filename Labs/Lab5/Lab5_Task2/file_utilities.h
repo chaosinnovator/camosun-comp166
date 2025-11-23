@@ -9,11 +9,18 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-int filePeakNextChar(FILE* fptr);
+/**
+* @brief Returns the next character in the file without advancing the file pointer.
+* @param fptr Pointer to open FILE stream
+* @return Returns the next character as an int or EOF
+*/
+int filePeekNextChar(FILE* fptr);
 
 /**
 * @brief Checks that output file is a valid path and that there are write permissions.
 * @param file_name String containing file path
 * @return Returns true if vaild path and write permission, false otherwise.
+* 
+* Note: Current implementation of this function will create the file if it does not exist.
 */
 bool checkOutputPathValid(const char* file_name);

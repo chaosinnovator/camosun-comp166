@@ -24,6 +24,11 @@ void calculateLogMeans(LogSummary* log_summary) {
 
 void calculateLogStdDevs(LogSummary* log_summary) {
 	for (int i = 0; i < log_summary->n_sensors; i++) {
+		if (log_summary->sensor_stats[i].count <= 1) {
+			// avoid division by zero; if only one sample, stddev is 0
+			log_summary->sensor_stats[i].stddev = 0.0;
+			continue;
+		}
 		// stddev = sqrt( (sumsq - sum^2)/(n*(n-1)) ) <-- calculate this second since we need mean and sumsq
 		log_summary->sensor_stats[i].stddev = sqrt(((double)log_summary->sensor_stats[i].count * log_summary->sensor_stats[i].sum_squares - (double)log_summary->sensor_stats[i].sum * log_summary->sensor_stats[i].sum) / (double)(log_summary->sensor_stats[i].count * (log_summary->sensor_stats[i].count - 1)));
 	}
@@ -52,7 +57,7 @@ int processLogData(FILE* input_stream, LogSummary* log_summary, int max_sensors)
 
 		// end if encounter a blank line (only leading whitespace then \n or EOF)
 		fscanf_s(input_stream, "%*[ \t]");
-		int c = filePeakNextChar(input_stream);
+		int c = filePeekNextChar(input_stream);
 		if (c == '\n' || c == EOF) {
 			break;
 		}
@@ -77,7 +82,7 @@ int processLogData(FILE* input_stream, LogSummary* log_summary, int max_sensors)
 			if (fscanf_s(input_stream, "%*[ \t]%lf", &new_sensor_value) != 1) {
 				// reached end of line or a wrong character
 				// check next char without consuming it
-				c = filePeakNextChar(input_stream);
+				c = filePeekNextChar(input_stream);
 
 				// if wrong character incountered:
 				if (c != '\n' && c != EOF) {

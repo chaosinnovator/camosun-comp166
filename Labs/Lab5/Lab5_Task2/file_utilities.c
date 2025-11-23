@@ -10,14 +10,18 @@
 #include <string.h>
 #include "file_utilities.h"
 
-int filePeakNextChar(FILE* fptr) {
+int filePeekNextChar(FILE* fptr) {
 	int c = fgetc(fptr);
+	if (c == EOF) {
+		fseek(fptr, -1, SEEK_CUR);
+		return EOF;
+	}
 	ungetc(c, fptr);
 	return c;
 }
 
 bool checkOutputPathValid(const char* file_name) {
-	FILE* fptr = fopen(file_name, "r+");
+	FILE* fptr = fopen(file_name, "a");
 	if (!fptr) {
 		return false;
 	}

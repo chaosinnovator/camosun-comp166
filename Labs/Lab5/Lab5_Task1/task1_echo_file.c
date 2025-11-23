@@ -20,7 +20,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include "file_utilities.h"
 
 void outputHelp();
 int outputFile(const char* file_name);
@@ -94,14 +93,19 @@ int outputFile(const char* filename) {
 	// for each char in file:
 	//   putc(char) to stdout
 	int c; // needs to be int not char for EOF detection since EOF=-1
-	while (true) {
-		c = fgetc(fptr);
-		if (c == EOF) {
-			break;
+	while ((c = fgetc(fptr)) != EOF) {
+		if (putchar(c) == EOF) {
+			// writing failed
+			fclose(fptr);
+			return -1;
 		}
-		putchar(c);
 	}
-	putchar('\n');
+
+	if (ferror(fptr)) {
+		// reading failed
+		fclose(fptr);
+		return -1;
+	}
 
 	// close file and exit
 	fclose(fptr);
@@ -123,12 +127,38 @@ int outputListFile(const char* filename) {
 	// for each line in file:
 	//   outputFile(line);
 	char line_buffer[256]; // limits lines to a maximum of 256 characters. malloc/realloc/free not introduced yet.
-	while (fgets(line_buffer, 256, fptr)) {
-		line_buffer[strcspn(line_buffer, "\n")] = 0; // remove trailing newline
-		if (outputFile(line_buffer) != 0) {
-			fprintf(stderr, "Error while processing file \"%s\" (listed in \"%s\"): ", line_buffer, filename);
-			perror("");
+	while (fgets(line_buffer, sizeof(line_buffer), fptr)) {
+		// if line is longer than buffer (no newline in buffer), report an error and skip
+		int len = strlen(line_buffer);
+		if (len == sizeof(line_buffer) - 1 && line_buffer[len - 1] != '\n') {
+			fprintf(stderr, "\nLine in list file \"%s\" exceeds maximum length of %d characters; skipping line.\n", filename, (int)sizeof(line_buffer) - 2);
+			// discard rest of line
+			int c;
+			while ((c = fgetc(fptr)) != EOF && c != '\n');
+			continue;
 		}
+		line_buffer[strcspn(line_buffer, "\n")] = 0; // remove trailing newline
+		// set start pointer to first non-whitespace character in line
+		char* start = line_buffer;
+		while (*start == ' ' || *start == '\t') {
+			start++;
+		}
+		// skip blank lines
+		if (strlen(start) == 0) {
+			continue;
+		}
+		// call outputFile(line)
+		if (outputFile(start) != 0) {
+			fprintf(stderr, "\nError while processing file \"%s\" (listed in \"%s\"): ", line_buffer, filename);
+			perror("");
+			continue;
+		}
+	}
+
+	if (ferror(fptr)) {
+		// reading failed
+		fclose(fptr);
+		return -1;
 	}
 
 	// close file

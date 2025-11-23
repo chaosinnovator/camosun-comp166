@@ -124,11 +124,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="file_utilities.c" />
     <ClCompile Include="task1_echo_file.c" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="file_utilities.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
