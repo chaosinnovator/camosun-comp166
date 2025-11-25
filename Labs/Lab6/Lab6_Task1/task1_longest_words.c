@@ -78,9 +78,11 @@ int main(int argc, char* argv[]) {
 			++new_word_length;
 			if (new_word_length >= new_word_max_length) {
 				new_word_max_length = new_word_length + 1;
+				char* old_word = new_word;
 				new_word = realloc(new_word, new_word_max_length);
 				if (new_word == NULL) {
 					// failed to increase new_word size. per lab instructions, we should stop here and print what was processed so far.
+					free(old_word);
 					fprintf(stderr, "Unable to allocate sufficient memory to process word from input.\n");
 					break;
 				}
