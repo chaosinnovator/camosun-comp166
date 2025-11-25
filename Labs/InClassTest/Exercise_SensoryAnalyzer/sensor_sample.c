@@ -19,15 +19,19 @@ int readEntireCsv(const char* filename, SensorSample* sample_array, int n_max_sa
 	int sample_count = 0;
 	// read in sensor lines
 		// parse into struct & store in array
-	for (; sample_count < n_max_samples && !feof(fscanf); sample_count++) {
+	int matches;
+	for (; sample_count < n_max_samples && !feof(fptr); sample_count++) {
 		SensorSample new_sample;
-		if (fscanf_s(fptr, " %d,%d,%f,%c",
+		new_sample.temperature_c = 0;
+		if ((matches = fscanf_s(fptr, " %d,%d,%lf,%c",
 			&new_sample.timestamp_ms,
 			&new_sample.vibration,
 			&new_sample.temperature_c,
 			&new_sample.status, 1
-		) != 4) {
-			fprintf(stderr, "Error parsing line %d\n", sample_count + 2); // +2 for header and 0-index
+		)) != 4) {
+			if (matches > 0) {
+				fprintf(stderr, "Error parsing line %d\n", sample_count + 2); // +2 for header and 0-index
+			}
 			break; // stop reading on parse error
 		}
 		sample_array[sample_count] = new_sample;
@@ -137,5 +141,33 @@ double maxTemperatureIndex(const SensorSample* sample_array, int n_samples) {
 	return max_idx;
 }
 
-void sortByVibrationDescending(SensorSample* sample_array, int n_samples);
-void printSamples(const SensorSample* sample_array, int n_samples);
+void sortByVibrationDescending(SensorSample* sample_array, int n_samples) {
+	// bubble sort by sample_array[i].vibration descending
+	// already handles arrays of length < 2.
+	// for each position from start to last unsorted-1, if position < position+1 then swap
+	int tmp;
+	for (int last_unsorted = n_samples - 1; last_unsorted > 0; last_unsorted--) {
+		for (int i = 0; i < last_unsorted; i++) {
+			if (sample_array[i].vibration >= sample_array[i + 1].vibration) {
+				// skip
+				continue;
+			}
+			// swap
+			tmp = sample_array[i].vibration;
+			sample_array[i].vibration = sample_array[i + 1].vibration;
+			sample_array[i + 1].vibration = tmp;
+		}
+	}
+}
+
+void printSamples(const SensorSample* sample_array, int n_samples) {
+	printf("Time (ms) | Vibration | Temp (C) | Status\n");
+	for (int i = 0; i < n_samples; i++) {
+		printf("% 9d | % 9d | %8.3f | %c\n",
+			sample_array[i].timestamp_ms,
+			sample_array[i].vibration,
+			sample_array[i].temperature_c,
+			sample_array[i].status
+		);
+	}
+}

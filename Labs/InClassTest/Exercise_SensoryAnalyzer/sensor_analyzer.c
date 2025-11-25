@@ -23,7 +23,16 @@ int main(int argc, char* argv[]) {
 	//  250,15,36.2,W
 
 	SensorSample* samples[MAX_SAMPLES];
-	readEntireCsv(argv[1], samples, MAX_SAMPLES);
+	int n_samples = readEntireCsv(argv[1], samples, MAX_SAMPLES);
+
+	if (n_samples <= 0) {
+		fprintf(stderr, "No samples read from file %s\n", argv[1]);
+		return EXIT_FAILURE;
+	}
+
+	sortByVibrationDescending(samples, n_samples);
+
+	printSamples(samples, n_samples);
 
 	return EXIT_SUCCESS;
 }
